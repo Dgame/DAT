@@ -1,10 +1,10 @@
-module Puzzle.DParser;
+module Dat.DParser;
 
 import std.stdio;
 import std.conv : to;
 
-import Puzzle.DLexer;
-import Puzzle.DTypes;
+import Dat.DLexer;
+import Dat.DTypes;
 
 enum KeyTok {
 	This,
@@ -323,31 +323,11 @@ const(Keyword)* isKeyword(ref const Token t) {
 	return null;
 }
 
-Struct[] structs;
-FuncDecl[] funcs;
-
-bool isStruct(const char[] id) {
-	foreach (ref const Struct s; structs) {
-		if (s.tok.toChars() == id)
-			return true;
-	}
-	
-	return false;
-}
-
-bool isFunc(const char[] id) {
-	foreach (ref const FuncDecl fd; funcs) {
-		if (fd.name.toChars() == id)
-			return true;
-	}
-	
-	return false;
-}
-
 struct Parser {
 public:
-	static size_t _tempCounter;
-	enum tempPrefix = "__";
+	Struct[]   structs;
+	FuncDecl[] funcDecls;
+	FuncCall[] funcCalls;
 	
 	Lexer* lex;
 	
@@ -361,6 +341,24 @@ public:
 	
 	this(string filename) {
 		this.lex = new Lexer(filename);
+	}
+	
+	const(Struct*) isStruct(const char[] id) {
+		foreach (ref const Struct s; this.structs) {
+			if (s.tok.toChars() == id)
+				return &s;
+		}
+		
+		return null;
+	}
+
+	const(FuncDecl*) isFunc(const char[] id) {
+		foreach (ref const FuncDecl fd; this.funcDecls) {
+			if (fd.name.toChars() == id)
+				return &fd;
+		}
+		
+		return null;
 	}
 	
 	void match(Tok type, string file = __FILE__, size_t line = __LINE__) {
@@ -390,11 +388,6 @@ public:
 		this.lex.nextToken();
 	}
 	
-	static string genId(string name) {
-		_tempCounter++;
-		return tempPrefix ~ name ~ to!(string)(_tempCounter);
-	}
-	
 	void parse() {
 		Token* t = this.nextToken();
 		
@@ -416,14 +409,14 @@ public:
 					Lstruct:
 					
 					this.match(Tok.Identifier); /// match 'struct'
-					writeln("\t struct -> ", this.loc.lineNum, ':', this.lex.token.toChars());
+					debug writeln("\t struct -> ", this.loc.lineNum, ':', this.lex.token.toChars());
 					structs ~= Struct(this.loc, this.lex.token);
 					this.match(Tok.Identifier); /// match struct name
 				}
 			} else if (*t == Tok.Identifier && *this.peekNext() == Tok.LParen) {
 				/// Is function call?
 				if (!isKeyword(*t) && isFunc(t.toChars())) {
-					writeln("\t\t", this.loc.lineNum, ':', t.toChars());
+					debug writeln("\t\t", this.loc.lineNum, ':', t.toChars());
 					this.parseFuncCall(t);
 					
 					continue;
@@ -439,6 +432,8 @@ public:
 	}
 	
 	void parseFuncCall(Token* t) {
+		FuncCall fc = FuncCall(this.loc, t.toChars());
+		
 		this.match(Tok.Identifier);
 		this.match('(');
 		
@@ -496,7 +491,7 @@ public:
 						ttoks ~= this.lex.token;
 						this.match(Tok.Identifier);
 					}
-					writeln(" TPL .........");
+					debug writeln("TPL .........");
 					id = new Identifier(this.loc, ttoks);
 				}
 				
@@ -525,13 +520,20 @@ public:
 					else
 						id = new Identifier(this.loc, ttoks);
 					
+					fc.pexp ~= ParamExp(this.loc);
+					fc.pexp[$ - 1].id = id;
+					
 					if (isStruct(tp.toChars())) {
+						fc.pexp[$ - 1].isLvalue = true;
 						// TODO: Funktion holen, Parameter durchgehen und schauen, ob dieser 'in ref' ist. Dazu vllt erstmal alle ParameterExpression parsen und danach durchgehen.
-						writeln("\t\t\t ----> Lvalue => ", id.toString());
+						debug writeln("\t\t\t ----> Lvalue => ", id.toString());
 					}
 				}
 			}
 		}
+		
+		// writeln(fc.toString());
+		this.funcCalls ~= fc;
 		
 		this.match(')');
 		this.match(';');
@@ -554,7 +556,7 @@ public:
 			STC stc = parseSTC();
 			
 			Token ty = this.lex.token;
-			writeln(" -> ", ty.toChars());
+			debug writeln(" -> ", ty.toChars());
 			this.match(Tok.Identifier);			// this.nextToken();
 			
 			Identifier* tyid;
@@ -598,15 +600,15 @@ public:
 				}
 				/// Type Identifier (if type is a template)
 				tyid = new Identifier(this.loc, ttoks);
-				writeln(" ====> ", tyid.toString());
+				debug writeln(" ====> ", tyid.toString());
 			}
 			
 			Token tv = this.lex.token;
-			writeln(" => ", tv.toChars());
+			debug writeln(" => ", tv.toChars());
 			
 			/// Is Template?
 			if (tv != Tok.Identifier) { // tv <-> this.lex.token
-				writeln("\tTPL");
+				debug writeln("\tTPL");
 				
 				while (true) {
 					this.nextToken();
@@ -629,6 +631,7 @@ public:
 			/// Next Parameter?
 			if (this.lex.token == Tok.Comma) {
 				this.match(',');
+				
 				continue;
 			}
 			
@@ -670,7 +673,7 @@ public:
 				fd.params[$ - 1].value = new Identifier(this.loc, ttoks);
 			}
 			
-			/// Function decl end?
+			/// Function decl. end?
 			if (this.lex.token == Tok.RParen || this.lex.token == Tok.Eof)
 				break;
 		}
@@ -681,7 +684,7 @@ public:
 		fd.fmod = parseFMod(); /// Func Modifier
 		this.match('{');
 		
-		funcs ~= fd;
+		this.funcDecls ~= fd;
 	}
 	
 	STC parseSTC() {
@@ -759,12 +762,12 @@ public:
 	}
 }
 
-void main() {
-	version(Test) {
-		Parser p = Parser("simple.d");
-		p.parse();
-	} else {
-		Parser p = Parser("rvalue_ref_model.d");
-		p.parse();
-	}
-}
+// void main() {
+	// version(Test) {
+		// Parser p = Parser("simple.d");
+		// p.parse();
+	// } else {
+		// Parser p = Parser("rvalue_ref_model.d");
+		// p.parse();
+	// }
+// }

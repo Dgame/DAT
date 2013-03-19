@@ -1,9 +1,11 @@
-module Puzzle.DTypes;
+module Dat.DTypes;
 
+import std.stdio;
+import std.conv : to;
 public import std.c.string : memcpy;
 
-import Puzzle.DLexer : Loc, Token, Tok;
-import Puzzle.DParser : Keyword;
+import Dat.DLexer : Loc, Token, Tok;
+import Dat.DParser : Keyword;
 
 /*
 enum Protection {
@@ -30,10 +32,11 @@ enum STC {
 }
 
 enum Mod {
-	const_ 		= 1,		// type is const
-	shared_		= 2,		// type is shared
-	immutable_	= 4,		// type is immutable
-	wild			= 8		// type is wild
+	none			= 1,
+	const_ 		= 2,		// type is const
+	shared_		= 4,		// type is shared
+	immutable_	= 8,		// type is immutable
+	wild			= 0x10		// type is wild
 }
 
 enum FMod {
@@ -60,7 +63,8 @@ enum FMod {
 struct Identifier {
 public:
 	const Loc loc;
-	Token[] toks;
+	const(Token)[] toks;
+	const string id;
 	
 	this(ref const Loc loc, Token[] toks) {
 		this.loc  = loc;
@@ -69,7 +73,17 @@ public:
 	
 	this(ref const Loc loc, ref const Token tok) {
 		this.loc  = loc;
-		this.toks ~= toks;
+		this.toks ~= tok;
+	}
+	
+	this(ref const Loc loc, string id) {
+		this.loc = loc;
+		this.id  = id;
+	}
+	
+	this(ref const Identifier id) {
+		this.loc  = id.loc;
+		this.toks = id.toks;
 	}
 	
 	@property
@@ -78,6 +92,9 @@ public:
 	}
 	
 	string toString() const pure nothrow {
+		if (this.id.length != 0)
+			return this.id;
+		
 		string output;
 		foreach (ref const Token tok; this.toks)
 			output ~= tok.toChars();
@@ -90,13 +107,23 @@ struct Decl {
 public:
 	const Loc loc;
 	Mod mod;
-	Identifier type;
-	Identifier name;
+	Identifier* type;
+	Identifier* name;
 	
 	size_t inuse;
 	
 	this(ref const Loc loc) {
 		this.loc = loc;
+	}
+	
+	string toString(bool noSem) const {
+		string end = noSem ? "" : ";";
+		
+		if (this.mod == Mod.none) {
+			return this.type.toString() ~ ' ' ~ this.name.toString() ~ end;
+		}
+		
+		return to!(string)(this.mod) ~ ' ' ~ this.type.toString() ~ ' ' ~ this.name.toString() ~ end;
 	}
 }
 
@@ -110,6 +137,12 @@ public:
 		this.loc = loc;
 		this.decl = decl;
 		this.value = val;
+		
+		this.decl.inuse += 1;
+	}
+	
+	string toString() const {
+		return this.decl.toString(true) ~ " = " ~ this.value.toString() ~ ';';
 	}
 }
 
@@ -137,15 +170,16 @@ public:
 
 struct ParamDecl {
 public:
-	const Loc   loc;
+	const Loc loc;
 	// const Token id; // auch als Identifier! Wegen Templates.
 	const Identifier type;
 	const Token var;
 	Identifier* value;
 	STC storage;
 	
-	this(ref const Loc loc, ref const Token tok, ref const Token val, STC stc) {
+	this(ref const Loc loc, ref const Token tok, ref const Token var, STC stc) {
 		this.type = Identifier(loc, tok);
+		//writeln(" :: ", this.type.toString());
 		
 		this.loc = loc;
 		this.var = var;
@@ -160,16 +194,40 @@ public:
 	}
 }
 
-// struct ParamExp {
-// public:
-	// const Loc loc;
-	// Identifier* value;
-	// bool isLvalue;
+struct ParamExp {
+public:
+	const Loc loc;
+	Identifier* id;
+	bool isLvalue;
 	
-	// this(ref const Loc loc) {
-		// this.loc = loc;
-	// }
-// }
+	this(ref const Loc loc) {
+		this.loc = loc;
+	}
+	
+	string toString() const pure nothrow {
+		return id !is null ? id.toString() : "None";
+	}
+}
+
+struct FuncCall {
+public:
+	const Loc loc;
+	const string name;
+	ParamExp[] pexp;
+	
+	this(ref const Loc loc, const char[] name) {
+		this.loc = loc;
+		this.name = cast(string) name;
+	}
+	
+	string toString() const pure nothrow {
+		string output = this.name ~ '(';
+		foreach (ref const ParamExp pe; this.pexp)
+			output ~= pe.toString();
+		
+		return output ~ ");";
+	}
+}
 
 struct FuncDecl {
 public:

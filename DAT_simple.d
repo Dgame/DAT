@@ -40,14 +40,14 @@ public:
 }
 
 void main() {
-	foo1(A());
-	foo1(A(42));
-	foo2(A(42, 23));
+auto __tempRR0 = A();	foo1(__tempRR0);
+auto __tempRR1 = A(42);	foo1(__tempRR1);
+auto __tempRR2 = A(42,23);	foo2(__tempRR2);
 	
 	auto f = new Foo!(int, float)();
-	f.foo(Vector2!(int, float)(42));
-	f.foo(Vector2!(float)(42));
-	f.foo(Vector2!float(42));
+auto __tempRR3 = Vector2!(int,float)(42);	f.foo(__tempRR3);
+auto __tempRR4 = Vector2!(float)(42);	f.foo(__tempRR4);
+auto __tempRR5 = Vector2!float(42);	f.foo(__tempRR5);
 	
 	foo4(Test.Bar);
 }

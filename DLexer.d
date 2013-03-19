@@ -1,7 +1,7 @@
-﻿module Puzzle.DLexer;
+﻿module Dat.DLexer;
 
 import std.stdio;
-import std.file : read;
+import std.file : exists, read;
 
 enum Tok {
 	None,
@@ -249,6 +249,9 @@ struct Lexer {
 	this(this);
 	
 	this(string filename) {
+		if (!exists(filename))
+			throw new Exception("Datei " ~ filename ~ " existiert nicht.");
+		
 		this.loc.filename = filename;
 		this.loc.lineNum  = 1;
 		
