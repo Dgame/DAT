@@ -529,6 +529,12 @@ public:
 						debug writeln("\t\t\t ----> Lvalue => ", id.toString());
 					}
 				}
+				
+				if (this.token == Tok.RParen)
+					break;
+				
+				/// next parameter?
+				this.match(',');
 			}
 		}
 		

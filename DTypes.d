@@ -222,8 +222,9 @@ public:
 	
 	string toString() const pure nothrow {
 		string output = this.name ~ '(';
-		foreach (ref const ParamExp pe; this.pexp)
-			output ~= pe.toString();
+		foreach (size_t i, ref const ParamExp pe; this.pexp) {
+			output ~= pe.toString() ~ ((i + 1) < this.pexp.length ? ", " : "");
+		}
 		
 		return output ~ ");";
 	}

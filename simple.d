@@ -16,6 +16,18 @@ void foo1(in ref A a) {
 
 }
 
+void foo11(in ref A a, in ref A a) {
+
+}
+
+void foo12(in ref A a, A a) {
+
+}
+
+void foo13(A a, in ref A a) {
+
+}
+
 void foo2(in ref A a, bool inUse = false) {
 
 }
@@ -43,6 +55,14 @@ void main() {
 	foo1(A());
 	foo1(A(42));
 	foo2(A(42, 23));
+	
+	foo12(A(42, 23), A(42));
+	foo13(A(42, 23), A(42));
+	
+	foo11(A(42), A(23, 42));
+	foo11(A(42), A(42));
+	A a2;
+	foo11(A(23), a2);
 	
 	auto f = new Foo!(int, float)();
 	f.foo(Vector2!(int, float)(42));

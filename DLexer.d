@@ -303,7 +303,7 @@ struct Lexer {
 	
 	Token* peek(Token* ct) {
 		if (ct.next) {
-			debug writeln("Next: ", ct.next.toChars());
+			debug(DLexer) writeln("Next: ", ct.next.toChars());
 			return ct.next;
 		}
 		
