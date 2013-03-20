@@ -525,7 +525,6 @@ public:
 					
 					if (isStruct(tp.toChars())) {
 						fc.pexp[$ - 1].isLvalue = true;
-						// TODO: Funktion holen, Parameter durchgehen und schauen, ob dieser 'in ref' ist. Dazu vllt erstmal alle ParameterExpression parsen und danach durchgehen.
 						debug writeln("\t\t\t ----> Lvalue => ", id.toString());
 					}
 				}

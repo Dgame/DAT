@@ -52,22 +52,23 @@ public:
 }
 
 void main() {
-auto __tempRR0 = A();  foo1(__tempRR0);
-auto __tempRR1 = A(42);  foo1(__tempRR1);
-auto __tempRR2 = A(42,23);  foo2(__tempRR2);
+auto __tempRR0 = A();  	foo1(__tempRR0);
+auto __tempRR1 = A(42);  	foo1(__tempRR1);
+auto __tempRR2 = A(42,23);  	foo2(__tempRR2);
 	
-auto __tempRR3 = A(42,23);  foo12(__tempRR3, A(42));
-auto __tempRR4 = A(42);  foo13(A(42,23), __tempRR4);
+auto __tempRR3 = A(42,23);  	foo12(__tempRR3,A(42));
+	if (cond)
+	{auto __tempRR4 = A(42);  foo13(A(42,23),__tempRR4);}
 	
-auto __tempRR5 = A(42); auto __tempRR6 = A(23,42);  foo11(__tempRR5, __tempRR6);
-auto __tempRR7 = A(42); auto __tempRR8 = A(42);  foo11(__tempRR7, __tempRR8);
+auto __tempRR5 = A(42); auto __tempRR6 = A(23,42);  	foo11(__tempRR5,__tempRR6);
+auto __tempRR7 = A(42); auto __tempRR8 = A(42);  	foo11(__tempRR7,__tempRR8);
 	A a2;
-auto __tempRR9 = A(23);  foo11(__tempRR9);
+auto __tempRR9 = A(23);  	foo11(A(23),a2);
 	
 	auto f = new Foo!(int, float)();
-auto __tempRR10 = Vector2!(int,float)(42);  foo(__tempRR10);
-auto __tempRR11 = Vector2!(float)(42);  foo(__tempRR11);
-auto __tempRR12 = Vector2!float(42);  foo(__tempRR12);
+auto __tempRR10 = Vector2!(int,float)(42);  	f.foo(__tempRR10);
+auto __tempRR11 = Vector2!(float)(42);  	f.foo(__tempRR11);
+auto __tempRR12 = Vector2!float(42);  	f.foo(__tempRR12);
 	
 	foo4(Test.Bar);
 }

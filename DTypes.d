@@ -63,8 +63,8 @@ enum FMod {
 struct Identifier {
 public:
 	const Loc loc;
+	const string id; /// preferred
 	const(Token)[] toks;
-	const string id;
 	
 	this(ref const Loc loc, Token[] toks) {
 		this.loc  = loc;
@@ -103,7 +103,7 @@ public:
 	}
 }
 
-struct Decl {
+struct VarDecl {
 public:
 	const Loc loc;
 	Mod mod;
@@ -130,10 +130,10 @@ public:
 struct AssignExp {
 public:
 	const Loc loc;
-	const Decl decl;
+	const VarDecl decl;
 	const Identifier value;
 	
-	this(ref const Loc loc, ref const Decl decl, ref const Identifier val) {
+	this(ref const Loc loc, ref const VarDecl decl, ref const Identifier val) {
 		this.loc = loc;
 		this.decl = decl;
 		this.value = val;
@@ -149,11 +149,11 @@ public:
 struct Exp {
 public:
 	const Loc loc;
-	const Decl decl;
+	const VarDecl decl;
 	
 	const Tok op;
 	
-	this(ref const Loc loc, ref const Decl decl, Tok op) {
+	this(ref const Loc loc, ref const VarDecl decl, Tok op) {
 		this.loc = loc;
 		
 		this.decl = decl;
@@ -223,7 +223,7 @@ public:
 	string toString() const pure nothrow {
 		string output = this.name ~ '(';
 		foreach (size_t i, ref const ParamExp pe; this.pexp) {
-			output ~= pe.toString() ~ ((i + 1) < this.pexp.length ? ", " : "");
+			output ~= pe.toString() ~ ((i + 1) < this.pexp.length ? "," : "");
 		}
 		
 		return output ~ ");";
