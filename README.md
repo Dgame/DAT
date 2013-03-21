@@ -1,19 +1,23 @@
 DAT
 ===
 
-D analysis tool
+<b>D</b> <b>a</b>nalysis <b>t</b>ool
 
-DAT can resolve rvalue references and unused or underused variables.
+<b>DAT</b> can resolve rvalue references and unused or underused variables.
 
 Usage
 ===
 Example:
-DCompiler --file mytest.d --autoref --unused
+<code>DCompiler --file mytest.d --autoref --unused</code>
 
 Options
 ===
---file        Your filename
---autoref     Resolve rvalue references by creating temporary variables. Creates a new file 'DAT_filename.d'.
---unused      Detects completly unused variables.
---underused   Detects Variables which are used one time or less.
---compile     Compiles the new files, if any. (Not implemented)
+<ul>
+<li><code>--file</code>        Your filename</li>
+<li><code>--autoref</code>     Resolve rvalue references by creating temporary variables. Creates a new file 'DAT_filename.d'.</li>
+<li><code>--unused</code>      Detects completly unused variables.</li>
+<li><code>--underused</code>   Detects Variables which are used one time or less.</li>
+<li><code>--compile</code>     Compiles the new files, if any. (Not implemented)</li>
+</ul>
+
+<b>Note that this is only a beta.</b>
