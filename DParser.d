@@ -326,6 +326,8 @@ const(Keyword)* isKeyword(ref const Token t) {
 struct Parser {
 public:
 	Struct[]   structs;
+	VarDecl[]  varDecls;
+	AssignExp[] varAssignExps;
 	FuncDecl[] funcDecls;
 	FuncCall[] funcCalls;
 	
@@ -361,6 +363,63 @@ public:
 		return null;
 	}
 	
+	VarDecl* isVar(const char[] id) {
+		if (auto vd = isVarDecl(id)) {
+			return vd;
+		}
+		
+		foreach (ref AssignExp ae; this.varAssignExps) {
+			if (ae.varDecl.name.toString() == id)
+				return &ae.varDecl;
+		}
+		
+		return null;
+	}
+	
+	VarDecl* isVarDecl(const char[] id) {
+		foreach (ref VarDecl vd; this.varDecls) {
+			if (vd.name.toString() == id)
+				return &vd;
+		}
+		
+		return null;
+	}
+	
+	Tok isExpression(const Token* t) {
+		switch (t.type) {
+			case Tok.BitAndAssign:
+				return t.type;
+			case Tok.BitOrAssign:
+				return t.type;
+			case Tok.CatAssign:
+				return t.type;
+			case Tok.DivAssign:
+				return t.type;
+			case Tok.MinusAssign:
+				return t.type;
+			case Tok.ModAssign:
+				return t.type;
+			case Tok.MulAssign:
+				return t.type;
+			case Tok.PlusAssign:
+				return t.type;
+			case Tok.PowAssign:
+				return t.type;
+			case Tok.UnsignedShiftRightAssign:
+				return t.type;
+			case Tok.XorAssign:
+				return t.type;
+			case Tok.Assign:
+				return t.type;
+			case Tok.Increment:
+				return t.type;
+			case Tok.Decrement:
+				return t.type;
+			default:
+				return Tok.None;
+		}
+	}
+	
 	void match(Tok type, string file = __FILE__, size_t line = __LINE__) {
 		if (this.lex.token.type != type) {
 			writeln(file, '@', line);
@@ -392,6 +451,15 @@ public:
 		Token* t = this.nextToken();
 		
 		do {
+			const Tok expType = isExpression(this.peekNext());
+			
+			if (*t == Tok.Identifier && expType != Tok.None) {
+				debug writeln(this.loc.lineNum, " : EXPRESSION");
+				this.parseVarExp(expType);
+				
+				continue;
+			}
+			
 			if (*t == Tok.Identifier && *this.peekNext() == Tok.Identifier) {
 				const Keyword* kw = isKeyword(*t);
 				
@@ -412,23 +480,107 @@ public:
 					debug writeln("\t struct -> ", this.loc.lineNum, ':', this.lex.token.toChars());
 					structs ~= Struct(this.loc, this.lex.token);
 					this.match(Tok.Identifier); /// match struct name
+				} else if (kw is null || kw.isBasicType 
+					|| kw.tok == KeyTok.Auto)
+				{
+					/// Var Declarations?!
+					debug writeln(" -> ", this.loc.lineNum, ':', t.toChars(), " => ", this.peekNext().toChars());
+					this.parseVarDecl();
+					
+					continue;
 				}
 			} else if (*t == Tok.Identifier && *this.peekNext() == Tok.LParen) {
+				const Keyword* kw = isKeyword(*t);
 				/// Is function call?
-				if (!isKeyword(*t) && isFunc(t.toChars())) {
+				if (!kw && isFunc(t.toChars())) {
 					debug writeln("\t\t", this.loc.lineNum, ':', t.toChars());
 					this.parseFuncCall(t);
 					
 					continue;
 				} else {
-					/// Garbage
-					this.match(Tok.Identifier);
-					this.match('(');
+					if (kw && kw.tok == KeyTok.This) {
+						debug writeln(this.loc.lineNum, ':', "CTOR");
+						version (none) {
+							/// Parse CTor declaration
+							this.parseCTorDecl();
+							
+							continue;
+						} else {
+							/// Garbage
+							this.match(Tok.Identifier);
+							this.match('(');
+						}
+					} else {
+						/// Garbage
+						this.match(Tok.Identifier);
+						this.match('(');
+					}
 				}
 			}
 			
 			t = this.nextToken();
 		} while (t.type != Tok.Eof);
+	}
+	
+	void parseVarExp(Tok expType) {
+		Token tv = this.lex.token;
+		
+		this.match(Tok.Identifier);
+		this.match(expType);
+		
+		/// increase var use counter
+		if (auto vd = isVar(tv.toChars()))
+			vd.inuse++;
+		
+		while (true) {
+			if (this.lex.token == Tok.Semicolon || this.lex.token == Tok.Eof)
+				break;
+			
+			this.nextToken();
+		}
+		
+		this.match(';');
+	}
+	
+	void parseVarDecl() {
+		Token ty = this.lex.token;
+		this.match(Tok.Identifier);
+		Token tv = this.lex.token;
+		this.match(Tok.Identifier);
+		
+		VarDecl vd = VarDecl(this.loc);
+		vd.type = new Identifier(this.loc, ty);
+		vd.name = new Identifier(this.loc, tv);
+		
+		/// Assign?
+		if (this.lex.token == Tok.Assign) {
+			this.match('=');
+			
+			Token[] ttoks;
+			while (true) {
+				ttoks ~= this.lex.token;
+				
+				if (this.lex.token == Tok.Semicolon || this.lex.token == Tok.Eof)
+					break;
+				
+				this.nextToken();
+			}
+			this.match(';');
+			
+			AssignExp ae = AssignExp(this.loc, vd, Identifier(this.loc, ttoks));
+			
+			this.varAssignExps ~= ae;
+			
+			return;
+		}
+		
+		this.match(';');
+		
+		this.varDecls ~= vd;
+	}
+	
+	void parseCTorDecl() {
+		// TODO
 	}
 	
 	void parseFuncCall(Token* t) {

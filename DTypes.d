@@ -130,19 +130,23 @@ public:
 struct AssignExp {
 public:
 	const Loc loc;
-	const VarDecl decl;
+	/*const */VarDecl varDecl;
 	const Identifier value;
 	
-	this(ref const Loc loc, ref const VarDecl decl, ref const Identifier val) {
+	this(ref const Loc loc, ref VarDecl vdecl, ref const Identifier val) {
 		this.loc = loc;
-		this.decl = decl;
+		this.varDecl = vdecl;
 		this.value = val;
 		
-		this.decl.inuse += 1;
+		this.varDecl.inuse += 1;
+	}
+	
+	this(ref const Loc loc, ref VarDecl vdecl, const Identifier val) {
+		this(loc, vdecl, val);
 	}
 	
 	string toString() const {
-		return this.decl.toString(true) ~ " = " ~ this.value.toString() ~ ';';
+		return this.varDecl.toString(true) ~ " = " ~ this.value.toString() ~ ';';
 	}
 }
 

@@ -28,21 +28,26 @@ public:
 }
 
 void main(string[] args) {
-	bool compile, resolveRRef;
+	bool compile, resolveRRef, detectUnused, detectUnderUsed;
 	string file;
 	
 	getopt(
 		args,
 		"compile", &compile,
 		"autoRef", &resolveRRef,
+		"unused", &detectUnused,
+		"underused", &detectUnderUsed,
 		"file", &file
 	);
 	
+	Parser p = Parser(file);
+	
+	/// Parse only if needed
+	if (resolveRRef || detectUnused || detectUnderUsed)
+		p.parse();
+	
 	if (resolveRRef) {
 		string[] flines = (cast(string) std.file.read(file)).splitLines();
-		
-		Parser p = Parser(file);
-		p.parse();
 		
 		Temp[size_t] temps;
 		
@@ -99,9 +104,24 @@ void main(string[] args) {
 		File f = File("DAT_" ~ file, "w+");
 		f.write(flines.join("\n"));
 		f.close();
-		
-		if (compile) {
-			// TODO:
+	}
+	
+	if (detectUnused) {
+		foreach (ref const VarDecl vd; p.varDecls) {
+			if (vd.inuse == 0)
+				writefln("Variable '%s' of type '%s' declared on line %d is never read.", vd.name.toString(), vd.type.toString(), vd.loc.lineNum);
 		}
+	}
+	
+	if (detectUnderUsed) {
+		foreach (ref const AssignExp ae; p.varAssignExps) {
+			const VarDecl vd = ae.varDecl;
+			if (vd.inuse <= 1)
+				writefln("Variable '%s' of type '%s' declared on line %d is used %d times.", vd.name.toString(), vd.type.toString(), vd.loc.lineNum, vd.inuse);
+		}
+	}
+	
+	if (compile) {
+		// TODO:
 	}
 }
