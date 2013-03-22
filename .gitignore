@@ -15,7 +15,6 @@ local.properties
 .classpath
 .settings/
 .loadpath
-.exe
 
 # External tool builders
 .externalToolBuilders/
@@ -126,6 +125,9 @@ Thumbs.db
 
 # Folder config file
 Desktop.ini
+
+*.exe
+*.bak
 
 
 #############
