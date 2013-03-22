@@ -54,24 +54,63 @@ enum FMod {
 	// synchronized_ = 0x800,
 	// override_ 	= 0x1000,
 	// abstract_ 	= 0x2000,
-	// property 	= 0x4000,
-	// trusted 	= 0x8000,
-	// safe 		= 0x10000,
-	// disable 	= 0x20000
+	property 	= 0x4000,
+	trusted 	= 0x8000,
+	safe 		= 0x10000,
+	disable 	= 0x20000,
+	system		= 0x40000
+}
+
+string toStr(const STC stc) {
+	string output;
+	
+	if (stc & STC.none)
+		output ~= "none ";
+	
+	if (stc & STC.const_)
+		output ~= "const ";
+	
+	if (stc & STC.immutable_)
+		output ~= "immutable ";
+	
+	if (stc & STC.ref_)
+		output ~= "ref ";
+	
+	if (stc & STC.out_)
+		output ~= "out ";
+	
+	if (stc & STC.scope_)
+		output ~= "scope ";
+	
+	if (stc & STC.lazy_)
+		output ~= "lazy ";
+	
+	if (stc & STC.shared_)
+		output ~= "shared ";
+	
+	if (stc & STC.wild)
+		output ~= "inout ";
+	
+	return output;
+}
+
+Tok isNext(ref const Token[] toks, size_t i) pure nothrow {
+	return i < toks.length ? toks[i].type : Tok.None;
 }
 
 struct Identifier {
 public:
 	const Loc loc;
 	const string id; /// preferred
-	const(Token)[] toks;
+	Token[] toks;
+	bool isDelegate;
 	
 	this(ref const Loc loc, Token[] toks) {
 		this.loc  = loc;
 		this.toks = toks;
 	}
 	
-	this(ref const Loc loc, ref const Token tok) {
+	this(ref const Loc loc, ref Token tok) {
 		this.loc  = loc;
 		this.toks ~= tok;
 	}
@@ -81,9 +120,10 @@ public:
 		this.id  = id;
 	}
 	
-	this(ref const Identifier id) {
+	this(ref Identifier id) {
 		this.loc  = id.loc;
 		this.toks = id.toks;
+		this.isDelegate = id.isDelegate;
 	}
 	
 	@property
@@ -95,9 +135,15 @@ public:
 		if (this.id.length != 0)
 			return this.id;
 		
-		string output;
-		foreach (ref const Token tok; this.toks)
+		string output = "";
+		foreach (size_t i, ref const Token tok; this.toks) {
 			output ~= tok.toChars();
+			if (this.isDelegate && tok == Tok.Identifier 
+				&& isNext(this.toks, i + 1) == Tok.Identifier)
+			{
+				output ~= ' ';
+			}
+		}
 		
 		return output;
 	}
@@ -168,33 +214,48 @@ public:
 struct RetType {
 public:
 	const Keyword* kw;
-	const Token id;
+	const Identifier* id;
 	// STC storage;
+	
+	this(const Keyword* kw, const Identifier* id) {
+		this.kw = kw;
+		this.id = id;
+	}
 }
 
 struct ParamDecl {
 public:
 	const Loc loc;
-	// const Token id; // auch als Identifier! Wegen Templates.
+	/// auch als Identifier, wegen Templates.
 	const Identifier type;
 	const Token var;
 	Identifier* value;
 	STC storage;
 	
-	this(ref const Loc loc, ref const Token tok, ref const Token var, STC stc) {
+	this(ref const Loc loc, ref Token tok, ref const Token var, STC stc) {
 		this.type = Identifier(loc, tok);
-		//writeln(" :: ", this.type.toString());
+		// writeln(" :: ", this.type.toString(), " <-> ", var.toChars());
 		
 		this.loc = loc;
 		this.var = var;
 		this.storage = stc;
 	}
 	
-	this(ref const Loc loc, ref const Identifier id, ref const Token val, STC stc) {
+	this(ref const Loc loc, ref const Identifier id, ref const Token var, STC stc) {
+		// writeln(" :: ", id.toString(), " <-> ", var.toChars());
+		
 		this.loc = loc;
 		this.type = id;
 		this.var = var;
 		this.storage = stc;
+	}
+	
+	string toString() const {
+		auto output = toStr(this.storage) ~ this.type.toString() ~ ' ' ~ this.var.toChars();
+		if (this.value)
+			output ~= " = " ~ this.value.toString();
+		
+		return cast(string) output;
 	}
 }
 
@@ -209,7 +270,7 @@ public:
 	}
 	
 	string toString() const pure nothrow {
-		return id !is null ? id.toString() : "None";
+		return id !is null ? id.toString() : "Undefinied ID";
 	}
 }
 
@@ -238,14 +299,23 @@ struct FuncDecl {
 public:
 	const Loc loc;
 	const RetType rt;
-	const Token name;
+	const string name;
 	ParamDecl[] params;
 	FMod fmod;
 	
 	this(ref const Loc loc, ref const RetType rt, ref const Token id) {
 		this.loc = loc;
 		this.rt = rt;
-		this.name = id;
+		this.name = cast(string) id.toChars();
+	}
+	
+	string toString() const {
+		string output = this.rt.id.toString() ~ ' ' ~ this.name ~ '(';
+		foreach (size_t i, ref const ParamDecl pd; this.params) {
+			output ~= pd.toString() ~ ((i + 1) < this.params.length ? "," : "");
+		}
+		
+		return output ~ ");";
 	}
 }
 

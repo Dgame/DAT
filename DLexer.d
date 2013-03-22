@@ -75,6 +75,7 @@ enum Tok {
 	
 	// Comment, /// $(D_COMMENT /** comment */) or $(D_COMMENT // comment) or $(D_COMMENT ///comment)
 	Identifier, /// Keywords
+	Property,
 	
 	// Whitespace, /// whitespace
 	// Newline, // Newlines
@@ -101,7 +102,7 @@ enum Tok {
 }
 
 private static const string[66] tokenValues = [
-	"None",
+	"Invalid Tok",
 	"=",
 	"@",
 	"&",
@@ -170,7 +171,7 @@ private static const string[66] tokenValues = [
 ];
 
 static auto getTokenValue(Tok tok) pure nothrow {
-	return tok < tokenValues.length ? tokenValues[tok] : "Undefinied";
+	return tok < tokenValues.length ? tokenValues[tok] : "Undefinied Tok";
 }
 
 struct Token {
@@ -196,6 +197,10 @@ public:
 	
 	bool opEquals(Tok tok) const pure nothrow {
 		return this.type == tok;
+	}
+	
+	bool opEquals(string str) const pure nothrow {
+		return this.ptr ? this.ptr[0 .. this.len] == str : false;
 	}
 }
 
@@ -388,7 +393,6 @@ struct Lexer {
 					this.loc.lineNum++;
 				continue;	// skip white space
 				
-				case '@': _p++; t.type = Tok.At;			return;
 				case '?': _p++; t.type = Tok.Ternary;	return;
 				case '#': _p++; t.type = Tok.Hash;		return;
 				case '$': _p++; t.type = Tok.Dollar; 	return;
@@ -404,6 +408,31 @@ struct Lexer {
 				case '{': _p++; t.type = Tok.LCurly; 	return;
 				case '}': _p++; t.type = Tok.RCurly; 	return;
 				case '\\': _p++; t.type = Tok.Backslash; return;
+				
+				case '@':
+					char* oldp = _p;
+					_p++;
+					
+					while (std.ascii.isAlpha(*_p)) {
+						_p++;
+					}
+					
+					switch (oldp[0 .. (_p - oldp)]) {
+						case "@property":
+						case "@safe":
+						case "@trusted":
+						case "@system":
+						case "@disable":
+							t.type = Tok.Property;
+							t.ptr  = oldp;
+							t.len  = _p - oldp;
+						default:
+							t.type = Tok.At;
+							// reset
+							_p = oldp;
+							_p++;
+					}
+				return;
 				
 				case '=':
 					_p++;
@@ -816,7 +845,8 @@ struct Lexer {
 
 // void main() {
 	// version (Test) {
-		// string filename = "rvalue_ref_model.d";//"simple.d";
+		// string filename = "simple.d";
+		// // string filename = "rvalue_ref_model.d";
 	// } else {
 		// string filename = "D:/D/dmd2/src/phobos/std/datetime.d";
 	// }

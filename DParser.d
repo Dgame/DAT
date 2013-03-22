@@ -1,6 +1,7 @@
 module Dat.DParser;
 
 import std.stdio;
+import std.algorithm : splitter, canFind;
 import std.conv : to;
 
 import Dat.DLexer;
@@ -323,6 +324,45 @@ const(Keyword)* isKeyword(ref const Token t) {
 	return null;
 }
 
+bool hasTplList(const Identifier* id) {
+	if (isTpl(id)) {
+		foreach (size_t i, ref const Token t; id.toks) {
+			if (t.type == Tok.Not && id.toks[i + 1].type == Tok.LParen)
+				return true;
+		}
+	}
+	
+	return false;
+}
+
+bool isTpl(const Identifier* id) {
+	if (isValidVarType(id)) {
+		foreach (ref const Token t; id.toks) {
+			if (t.type == Tok.Not)
+				return true;
+		}
+	}
+	
+	return false;
+}
+
+size_t count(const Identifier* id) {
+	return id ? id.toks.length : 0;
+}
+
+bool isValidVarType(const Identifier* id) {
+	if (count(id) != 0) {
+		foreach (ref const Token t; id.toks) {
+			if (t.type == Tok.Dot)
+				return false;
+		}
+		
+		return true;
+	}
+	
+	return false;
+}
+
 struct Parser {
 public:
 	Struct[]   structs;
@@ -345,7 +385,7 @@ public:
 		this.lex = new Lexer(filename);
 	}
 	
-	const(Struct*) isStruct(const char[] id) {
+	const(Struct)* isStruct(const char[] id) const pure nothrow {
 		foreach (ref const Struct s; this.structs) {
 			if (s.tok.toChars() == id)
 				return &s;
@@ -354,22 +394,35 @@ public:
 		return null;
 	}
 
-	const(FuncDecl*) isFunc(const char[] id) {
+	const(FuncDecl)* isFunc(const char[] id) const pure nothrow {
 		foreach (ref const FuncDecl fd; this.funcDecls) {
-			if (fd.name.toChars() == id)
+			if (fd.name == id)
 				return &fd;
 		}
 		
 		return null;
 	}
 	
+	const(FuncDecl)* isMethod(const Identifier* id) const pure nothrow {
+		if (!id)
+			return null;
+		
+		return isFunc(id.toks[$ - 1].toChars());
+	}
+	
+	const(FuncDecl)* isMethod(string name) {
+		return isFunc(name.splitter('.').back);
+	}
+	
 	VarDecl* isVar(const char[] id) {
-		if (auto vd = isVarDecl(id)) {
+		auto id2 = id.canFind('.') ? id.splitter('.').back : id;
+		
+		if (auto vd = isVarDecl(id2)) {
 			return vd;
 		}
 		
 		foreach (ref AssignExp ae; this.varAssignExps) {
-			if (ae.varDecl.name.toString() == id)
+			if (ae.varDecl.name.toString() == id2)
 				return &ae.varDecl;
 		}
 		
@@ -377,42 +430,31 @@ public:
 	}
 	
 	VarDecl* isVarDecl(const char[] id) {
+		auto id2 = id.canFind('.') ? id.splitter('.').back : id;
+		
 		foreach (ref VarDecl vd; this.varDecls) {
-			if (vd.name.toString() == id)
+			if (vd.name.toString() == id2)
 				return &vd;
 		}
 		
 		return null;
 	}
 	
-	Tok isExpression(const Token* t) {
+	Tok isExpression(ref const Token t) const pure nothrow {
 		switch (t.type) {
 			case Tok.BitAndAssign:
-				return t.type;
 			case Tok.BitOrAssign:
-				return t.type;
 			case Tok.CatAssign:
-				return t.type;
 			case Tok.DivAssign:
-				return t.type;
 			case Tok.MinusAssign:
-				return t.type;
 			case Tok.ModAssign:
-				return t.type;
 			case Tok.MulAssign:
-				return t.type;
 			case Tok.PlusAssign:
-				return t.type;
 			case Tok.PowAssign:
-				return t.type;
 			case Tok.UnsignedShiftRightAssign:
-				return t.type;
 			case Tok.XorAssign:
-				return t.type;
 			case Tok.Assign:
-				return t.type;
 			case Tok.Increment:
-				return t.type;
 			case Tok.Decrement:
 				return t.type;
 			default:
@@ -447,59 +489,134 @@ public:
 		this.lex.nextToken();
 	}
 	
+	Identifier* summarize() {
+		Token t = this.lex.token;
+		
+		if (t.type != Tok.Identifier)
+			return null;
+		
+		Token[] ttoks;
+		ttoks ~= t;
+		
+		this.nextToken();
+		
+		while (true) {
+			bool loop = false;
+			
+			/// Template
+			if (this.lex.token == Tok.Not) {
+				ttoks ~= this.lex.token;
+				this.match('!');
+				
+				/// Template List => !(....)
+				if (this.lex.token == Tok.LParen) {
+					ttoks ~= this.lex.token;
+					this.match('(');
+					
+					while (true) {
+						ttoks ~= this.lex.token;
+						this.nextToken();
+						
+						if (this.lex.token == Tok.RParen)
+							break;
+					}
+					
+					ttoks ~= this.lex.token;
+					this.match(')');
+				} else {
+					ttoks ~= this.lex.token;
+					
+					if (this.lex.token == Tok.Identifier)
+						this.match(Tok.Identifier);
+					else
+						this.nextToken();
+				}
+				
+				loop = true;
+			}
+			
+			/// Enum or Function call
+			if (this.lex.token == Tok.Dot) {
+				ttoks ~= this.lex.token;
+				this.match('.');
+				ttoks ~= this.lex.token;
+				this.match(Tok.Identifier);
+				
+				loop = true;
+			}
+			
+			if (!loop)
+				break;
+		}
+		
+		return new Identifier(this.loc, ttoks);
+	}
+	
 	void parse() {
 		Token* t = this.nextToken();
 		
 		do {
-			const Tok expType = isExpression(this.peekNext());
+			Identifier* mid = this.summarize();
+			// if (mid)
+				// writeln('@', mid.loc.lineNum, " -- ", mid.toString(), " : ", this.lex.token.toChars());
+				
+			const Tok expType = isExpression(this.lex.token);
 			
-			if (*t == Tok.Identifier && expType != Tok.None) {
-				debug writeln(this.loc.lineNum, " : EXPRESSION");
-				this.parseVarExp(expType);
+			if (count(mid) && expType != Tok.None) {
+				// writeln(this.loc.lineNum, " : EXPRESSION");
+				this.parseVarExp(mid, expType);
 				
 				continue;
 			}
 			
-			if (*t == Tok.Identifier && *this.peekNext() == Tok.Identifier) {
-				const Keyword* kw = isKeyword(*t);
+			if (count(mid) && this.lex.token == Tok.Identifier) {
+				// writeln(mid.toString(), " -- ", this.lex.token.toChars());
+				const Keyword* kw = count(mid) == 1 ? isKeyword(mid.toks[0]) : null;
 				
-				if (*this.peekNext2() == Tok.LParen) {
-					if (kw is null || kw.isBasicType) {
-						// writeln(this.loc.lineNum, ':', t.toChars(), " => ", this.peekNext().toChars());
-						this.parseFuncDecl(t, kw);
+				/// ignore normal Keywords, except structs
+				if (kw && !kw.isBasicType && kw.tok != KeyTok.Struct)
+					continue;
+				
+				if (*this.peekNext() == Tok.LParen) {
+					if (!kw || kw.isBasicType) {
+						debug writefln("\t @ %d Function Decl: %s %s", this.loc.lineNum, mid.toString(), this.lex.token.toChars());
 						
-						continue; // To ensure that no identifier is forgotten.
-					} else if (kw.tok == KeyTok.Struct) {
-						/// Template struct
-						goto Lstruct;
-					}
+						this.parseFuncDecl(mid, kw);
+						
+						continue; /// To ensure that no identifier is forgotten.
+					} else if (kw.tok == KeyTok.Struct)
+						goto Lstruct; /// Template struct
 				} else if (kw && kw.tok == KeyTok.Struct) {
 					Lstruct:
 					
-					this.match(Tok.Identifier); /// match 'struct'
-					debug writeln("\t struct -> ", this.loc.lineNum, ':', this.lex.token.toChars());
-					structs ~= Struct(this.loc, this.lex.token);
-					this.match(Tok.Identifier); /// match struct name
-				} else if (kw is null || kw.isBasicType 
-					|| kw.tok == KeyTok.Auto)
+					debug writefln("\t - Struct @ %d: %s", this.loc.lineNum, this.lex.token.toChars());
+					this.parseStructDecl();
+					
+					continue;
+				} else if (isValidVarType(mid)
+					&& (kw is null || kw.isBasicType || kw.tok == KeyTok.Auto)
+					&& (*this.lex.peekNext() == Tok.Semicolon
+					|| *this.lex.peekNext() == Tok.Assign))
 				{
-					/// Var Declarations?!
-					debug writeln(" -> ", this.loc.lineNum, ':', t.toChars(), " => ", this.peekNext().toChars());
-					this.parseVarDecl();
+					debug writefln("\tVD @ %d: %s, %s %s", mid.loc.lineNum, mid.toString(), this.lex.token.toChars(), this.lex.peekNext().toChars());
+					
+					this.parseVarDecl(mid);
 					
 					continue;
 				}
-			} else if (*t == Tok.Identifier && *this.peekNext() == Tok.LParen) {
-				const Keyword* kw = isKeyword(*t);
+			} else if (count(mid) && this.lex.token == Tok.LParen) {
+				const Keyword* kw = count(mid) == 1 ? isKeyword(mid.toks[0]) : null;
 				/// Is function call?
-				if (!kw && isFunc(t.toChars())) {
-					debug writeln("\t\t", this.loc.lineNum, ':', t.toChars());
-					this.parseFuncCall(t);
+				if (!kw && (isFunc(mid.toString()) || isMethod(mid))) {
+					debug writefln("\t @ %d Function Call: %s", this.loc.lineNum, mid.toString());
+					
+					this.parseFuncCall(mid);
 					
 					continue;
 				} else {
 					if (kw && kw.tok == KeyTok.This) {
 						debug writeln(this.loc.lineNum, ':', "CTOR");
+						
 						version (none) {
 							/// Parse CTor declaration
 							this.parseCTorDecl();
@@ -507,12 +624,18 @@ public:
 							continue;
 						} else {
 							/// Garbage
-							this.match(Tok.Identifier);
+							
+							// this.match(Tok.Identifier);
 							this.match('(');
+							
+							while (this.lex.token != Tok.LCurly)
+								this.nextToken();
+							
+							this.match('{');
 						}
 					} else {
 						/// Garbage
-						this.match(Tok.Identifier);
+						// this.match(Tok.Identifier);
 						this.match('(');
 					}
 				}
@@ -522,16 +645,21 @@ public:
 		} while (t.type != Tok.Eof);
 	}
 	
-	void parseVarExp(Tok expType) {
-		Token tv = this.lex.token;
-		
-		this.match(Tok.Identifier);
+	void parseStructDecl() {
+		structs ~= Struct(this.loc, this.lex.token);
+		// writeln(" = ", this.lex.token.toChars());
+		this.match(Tok.Identifier); /// match struct name
+	}
+	
+	void parseVarExp(const Identifier* id, Tok expType) {
+		debug writefln("VarExp: %s", id.toString());
 		this.match(expType);
 		
 		/// increase var use counter
-		if (auto vd = isVar(tv.toChars()))
-			vd.inuse++;
+		if (auto vd = isVar(id.toString()))
+			vd.inuse++; 
 		
+		/// ignore exp. assignment
 		while (true) {
 			if (this.lex.token == Tok.Semicolon || this.lex.token == Tok.Eof)
 				break;
@@ -542,14 +670,15 @@ public:
 		this.match(';');
 	}
 	
-	void parseVarDecl() {
-		Token ty = this.lex.token;
-		this.match(Tok.Identifier);
+	void parseVarDecl(Identifier* id) {
+		// Token ty = this.lex.token;
+		// this.match(Tok.Identifier);
 		Token tv = this.lex.token;
+		debug writeln(" VD => ", tv.toChars());
 		this.match(Tok.Identifier);
 		
 		VarDecl vd = VarDecl(this.loc);
-		vd.type = new Identifier(this.loc, ty);
+		vd.type = id;//new Identifier(this.loc, ty);
 		vd.name = new Identifier(this.loc, tv);
 		
 		/// Assign?
@@ -568,14 +697,12 @@ public:
 			this.match(';');
 			
 			AssignExp ae = AssignExp(this.loc, vd, Identifier(this.loc, ttoks));
-			
 			this.varAssignExps ~= ae;
 			
 			return;
 		}
 		
 		this.match(';');
-		
 		this.varDecls ~= vd;
 	}
 	
@@ -583,124 +710,118 @@ public:
 		// TODO
 	}
 	
-	void parseFuncCall(Token* t) {
-		FuncCall fc = FuncCall(this.loc, t.toChars());
+	void parseFuncCall(const Identifier* mid) {
+		FuncCall fc = FuncCall(this.loc, mid.toString());
 		
-		this.match(Tok.Identifier);
+		// this.match(Tok.Identifier);
 		this.match('(');
 		
-		if (this.lex.token != Tok.RParen) {
-			while (this.lex.token != Tok.RParen) {
-				Token tp = this.lex.token;
-				this.match(Tok.Identifier);
+		if (this.lex.token == Tok.RParen)
+			goto LemptyCall;
+		
+		while (this.lex.token != Tok.RParen) {
+			Token tp = this.lex.token;
+			
+			Identifier* id;
+			
+			/// is Identifier or rvalue?
+			if (tp == Tok.Identifier) {
+				// this.match(Tok.Identifier);
+				id = this.summarize(); /// collects also tp
+			} else {
+				Token[] ttoks;
+				ttoks ~= tp;
 				
-				Identifier* id;
-				if (this.lex.token == Tok.Dot) {
-					Token[] ttoks;
-					ttoks ~= tp;
-					
-					while (true) {
-						ttoks ~= this.lex.token;
-						this.match('.');
-						ttoks ~= this.lex.token;
-						this.match(Tok.Identifier);
-						
-						if (this.lex.token != Tok.Dot)
-							break;
+				this.nextToken();
+				
+				while (true) {
+					if (this.lex.token == Tok.Comma)
+						break;
+					if (this.lex.token == Tok.RParen
+						&& (*this.peekNext() == Tok.Comma
+						|| *this.peekNext() == Tok.Semicolon))
+					{
+						break;
 					}
 					
-					id = new Identifier(this.loc, ttoks);
-				} else if (this.lex.token == Tok.Not) {
-					Token[] ttoks;
-					ttoks ~= tp;
-					//while (true) {
 					ttoks ~= this.lex.token;
-					this.match('!');
-					
-					/// Template List => !(....)
-					if (this.lex.token == Tok.LParen) {
-						ttoks ~= this.lex.token;
-						this.match('(');
-						
-						while (true) {
-							ttoks ~= this.lex.token;
-							this.match(Tok.Identifier);
-							
-							if (this.lex.token == Tok.Comma) {
-								ttoks ~= this.lex.token;
-								this.match(',');
-								
-								continue;
-							}
-							
-							if (this.lex.token == Tok.RParen)
-								break;
-						}
-						
-						ttoks ~= this.lex.token;
-						this.match(')');
-					} else {
-						ttoks ~= this.lex.token;
-						this.match(Tok.Identifier);
-					}
-					debug writeln("TPL .........");
-					id = new Identifier(this.loc, ttoks);
+					this.nextToken();
 				}
 				
-				// writeln("\t --##--> ", id ? id.toString() : tp.toChars());
-				// writeln(" = ", this.lex.token.toChars());
+				id = new Identifier(this.loc, ttoks);
 				
-				/// Call
-				if (this.lex.token == Tok.LParen) {
-					Token[] ttoks;
-					
-					if (!id)
-						ttoks ~= tp;
-					
-					ttoks ~= this.lex.token;
-					this.match('(');
-					while (this.lex.token != Tok.RParen) {
-						ttoks ~= this.lex.token;
-						// writeln(ttoks[$ - 1].toChars());
-						this.lex.nextToken();
-					}
-					ttoks ~= this.lex.token;
-					this.match(')');
-					
-					if (id)
-						id.toks ~= ttoks;
-					else
-						id = new Identifier(this.loc, ttoks);
-					
-					fc.pexp ~= ParamExp(this.loc);
-					fc.pexp[$ - 1].id = id;
-					
-					if (isStruct(tp.toChars())) {
-						fc.pexp[$ - 1].isLvalue = true;
-						debug writeln("\t\t\t ----> Lvalue => ", id.toString());
-					}
-				}
-				
-				if (this.token == Tok.RParen)
-					break;
-				
-				/// next parameter?
-				this.match(',');
+				goto Ldone;
 			}
+			
+			/// Call. Bsp.: Before: A, After: A(42)
+			if (this.lex.token == Tok.LParen) {
+				Token[] ttoks;
+				
+				ttoks ~= this.lex.token;
+				this.match('(');
+				while (this.lex.token != Tok.RParen) {
+					ttoks ~= this.lex.token;
+					// writeln(ttoks[$ - 1].toChars());
+					this.lex.nextToken();
+				}
+				ttoks ~= this.lex.token;
+				this.match(')');
+				
+				id.toks ~= ttoks;
+				// ...
+			}
+			
+			/// Jump to, if param is no Identifier
+			Ldone:
+			
+			/// All other stuff. Mostly important for rvalues.
+			if (this.lex.token != Tok.Comma 
+				&& this.lex.token != Tok.RParen)
+			{
+				while (true) {
+					if (this.lex.token == Tok.Comma
+						|| this.lex.token == Tok.RParen)
+					{
+						break;
+					}
+					
+					id.toks ~= this.lex.token;
+					this.nextToken();
+				}
+			}
+			
+			fc.pexp ~= ParamExp(this.loc);
+			fc.pexp[$ - 1].id = id;
+			
+			if (isStruct(tp.toChars())) {
+				fc.pexp[$ - 1].isLvalue = true;
+				// writefln("\t\t\t Lvalue for struct %s => %s", tp.toChars(), id.toString());
+			}
+			
+			if (this.lex.token == Tok.RParen)
+				break;
+			
+			/// next parameter
+			this.match(',');
 		}
 		
-		// writeln(fc.toString());
-		this.funcCalls ~= fc;
+		LemptyCall:
 		
 		this.match(')');
-		this.match(';');
+		
+		/// If func call is inside of other call, we ignore him.
+		if (this.lex.token == Tok.Semicolon) {
+			this.match(';');
+			debug writeln(fc.toString());
+			this.funcCalls ~= fc;
+		}
 	}
 	
-	void parseFuncDecl(Token* t, const Keyword* kw) {
-		RetType rt  = RetType(kw, *t);
-		FuncDecl fd = FuncDecl(this.loc, rt, *this.peekNext());
+	void parseFuncDecl(const Identifier* id, const Keyword* kw) {
+		RetType rt  = RetType(kw, id);
+		FuncDecl fd = FuncDecl(this.loc, rt, this.lex.token);
 		
-		this.match(Tok.Identifier);
+		// this.match(Tok.Identifier);
 		this.match(Tok.Identifier);
 		this.match('(');
 		
@@ -712,60 +833,37 @@ public:
 			/// Parameter storage class
 			STC stc = parseSTC();
 			
-			Token ty = this.lex.token;
-			debug writeln(" -> ", ty.toChars());
-			this.match(Tok.Identifier);			// this.nextToken();
+			Identifier* tyid = this.summarize();
+			if (!tyid)
+				error("Undefined parameter type.", this.loc);
+			// writeln("Type Id: ", tyid.toString());
 			
-			Identifier* tyid;
-			/// Is Template Type?
-			if (this.lex.token == Tok.Not) {
-				Token[] ttoks;
-				ttoks ~= ty;
-				while (true) {
-					ttoks ~= this.lex.token;
-					this.match(Tok.Not);
-					
-					/// Template List => !(....)
-					if (this.lex.token == Tok.LParen) {
-						ttoks ~= this.lex.token;
-						this.match('(');
-						
-						while (true) {
-							ttoks ~= this.lex.token;
-							this.match(Tok.Identifier);
-							
-							if (this.lex.token == Tok.Comma) {
-								ttoks ~= this.lex.token;
-								this.match(',');
-								
-								continue;
-							}
-							
-							if (this.lex.token == Tok.RParen)
-								break;
-						}
-						
-						ttoks ~= this.lex.token;
-						this.match(')');
-					} else {
-						ttoks ~= this.lex.token;
-						this.match(Tok.Identifier);
-					}
-					
-					if (this.lex.token != Tok.Not)
-						break;
+			if (this.lex.token == "delegate" 
+				|| this.lex.token == "function")
+			{
+				tyid.isDelegate = true;
+				
+				tyid.toks ~= this.lex.token;
+				this.match(Tok.Identifier);
+				tyid.toks ~= this.lex.token;
+				this.match('(');
+				
+				while (this.lex.token != Tok.RParen) {
+					tyid.toks ~= this.lex.token;
+					this.nextToken();
 				}
-				/// Type Identifier (if type is a template)
-				tyid = new Identifier(this.loc, ttoks);
-				debug writeln(" ====> ", tyid.toString());
+				
+				tyid.toks ~= this.lex.token;
+				this.match(')');
 			}
 			
 			Token tv = this.lex.token;
-			debug writeln(" => ", tv.toChars());
+			// writeln(" #1 => ", tv.toChars());
 			
 			/// Is Template?
-			if (tv != Tok.Identifier) { // tv <-> this.lex.token
-				debug writeln("\tTPL");
+			/// 'tv' is same as 'this.lex.token'
+			if (tv != Tok.Identifier || *this.peekNext2() == Tok.LParen) {
+				debug writeln("\tTPL: ", fd.name);
 				
 				while (true) {
 					this.nextToken();
@@ -775,15 +873,11 @@ public:
 				
 				this.match('{');
 				
-				return;
+				return; /// abort here
 			} else
 				this.match(Tok.Identifier);			// this.nextToken();
 			
-			/// Is type Identifier or Token?
-			if (tyid)
-				fd.params ~= ParamDecl(this.loc, *tyid, tv, stc);
-			else
-				fd.params ~= ParamDecl(this.loc, ty, tv, stc);
+			fd.params ~= ParamDecl(this.loc, *tyid, tv, stc);
 			
 			/// Next Parameter?
 			if (this.lex.token == Tok.Comma) {
@@ -792,42 +886,57 @@ public:
 				continue;
 			}
 			
+			// writeln(" #2 => ", this.lex.token.toChars());
+			
 			/// Has default value?
 			if (this.lex.token == Tok.Assign) {
+				debug writeln("Has default value");
+				
 				this.match(Tok.Assign);
 				
-				Token[] ttoks;
-				ttoks ~= this.lex.token;
-				this.match(Tok.Identifier);
-				
-				while (true) {
-					/// Enum or Func.Call
-					if (this.lex.token == Tok.Dot) {
-						while (true) {
-							ttoks ~= this.lex.token;
-							this.match(Tok.Dot);
-							ttoks ~= this.lex.token;
-							this.match(Tok.Identifier);
-							
-							if (this.lex.token != Tok.Dot)
-								break;
-						}
-						/// Template
-					} else if (this.lex.token == Tok.Not) {
-						while (true) {
-							ttoks ~= this.lex.token;
-							this.match(Tok.Not);
-							ttoks ~= this.lex.token;
-							this.match(Tok.Identifier);
-							
-							if (this.lex.token != Tok.Not)
-								break;
-						}
-					} else
-						break;
+				Identifier* defId = this.summarize();
+				/// Is no Identifier?
+				if (!defId) {
+					Token[] ttoks;
+					
+					while (this.lex.token != Tok.Comma 
+						&& this.lex.token != Tok.RParen)
+					{
+						ttoks ~= this.lex.token;
+						this.nextToken();
+					}
+					
+					if (ttoks.length == 0)
+						error("Invalid default value.", this.loc);
+					
+					defId = new Identifier(this.loc, ttoks);
 				}
+					
+				// writeln("DefId: ", defId.toString());
+				
+				/// Is call?
+				if (this.lex.token == Tok.LParen) {
+					defId.toks ~= this.lex.token;
+					this.match('(');
+					
+					while (this.lex.token != Tok.RParen) {
+						defId.toks ~= this.lex.token;
+						this.nextToken();
+					}
+					
+					defId.toks ~= this.lex.token;
+					this.match(')');
+				}
+				
 				/// Default value
-				fd.params[$ - 1].value = new Identifier(this.loc, ttoks);
+				fd.params[$ - 1].value = defId;
+				
+				/// Next Parameter?
+				if (this.lex.token == Tok.Comma) {
+					this.match(',');
+					
+					continue;
+				}
 			}
 			
 			/// Function decl. end?
@@ -839,9 +948,37 @@ public:
 		
 		this.match(')');
 		fd.fmod = parseFMod(); /// Func Modifier
-		this.match('{');
+		parseContract();
 		
-		this.funcDecls ~= fd;
+		if (this.lex.token == Tok.LCurly) {
+			this.match('{');
+			this.funcDecls ~= fd;
+			
+			// return;
+		}
+		/*
+		/// Is Template?
+		if (this.lex.token == Tok.LParen) {
+			this.match('(');
+			
+			return;
+		}
+		
+		this.match(';'); /// Func Decl. without body
+		*/
+	}
+	
+	void parseContract() {
+		if (this.lex.token == "in" || this.lex.token == "out") {
+			debug writeln("CONTRACT");
+			this.nextToken(); /// jump over 'in' or 'out'
+			while (!(this.lex.token == "body" && *this.peekNext() == Tok.LCurly)) {
+				this.nextToken();
+				// TODO
+			}
+			
+			this.match("body");
+		}
 	}
 	
 	STC parseSTC() {
@@ -884,6 +1021,8 @@ public:
 				this.nextToken();
 		}
 		
+		stc &= ~STC.none;
+		
 		return stc;
 	}
 	
@@ -908,12 +1047,33 @@ public:
 				case "inout":
 					fmod |= FMod.wild;
 				break;
+				
+				/// Begin backwars compatibility
+				case "@property":
+					fmod |= FMod.property;
+				break;
+				case "@safe":
+					fmod |= FMod.safe;
+				break;
+				case "@trusted":
+					fmod |= FMod.trusted;
+				break;
+				case "@system":
+					fmod |= FMod.system;
+				break;
+				case "@disable":
+					fmod |= FMod.disable;
+				break;
+				/// End backwars compatibility
+				
 				default: loop = false;
 			}
 			
 			if (loop)
 				this.nextToken();
 		}
+		
+		fmod &= ~FMod.none;
 		
 		return fmod;
 	}

@@ -27,6 +27,8 @@ public:
 	}
 }
 
+enum UnderUsed = 1;
+
 void main(string[] args) {
 	bool compile, resolveRRef, detectUnused, detectUnderUsed;
 	string file;
@@ -37,14 +39,22 @@ void main(string[] args) {
 		"autoRef", &resolveRRef,
 		"unused", &detectUnused,
 		"underused", &detectUnderUsed,
-		"file", &file
+		"file|f", &file
 	);
+	
+	if (detectUnused && detectUnderUsed)
+		writeln(" -- 'detectUnused' and 'detectUnderUsed' could match the same.");
 	
 	Parser p = Parser(file);
 	
 	/// Parse only if needed
 	if (resolveRRef || detectUnused || detectUnderUsed)
 		p.parse();
+	
+	// foreach (ref const FuncDecl fd; p.funcDecls)
+		// writeln(fd.toString());
+	// foreach (ref const FuncCall fc; p.funcCalls)
+		// writeln(fc.toString());
 	
 	if (resolveRRef) {
 		string[] flines = (cast(string) std.file.read(file)).splitLines();
@@ -54,7 +64,11 @@ void main(string[] args) {
 		foreach (ref FuncCall fc; p.funcCalls) {
 			foreach (size_t i, ref ParamExp pe; fc.pexp) {
 				if (pe.isLvalue) {
-					const(FuncDecl*) fd = p.isFunc(fc.name);
+					const(FuncDecl)* fd = p.isFunc(fc.name);
+					
+					if (!fd)
+						fd = p.isMethod(fc.name);
+					
 					if (fd
 						&& (fd.params[i].storage & STC.const_)
 						&& (fd.params[i].storage & STC.ref_))
@@ -66,7 +80,7 @@ void main(string[] args) {
 						de.name = new Identifier(fc.loc, genId("tempRR"));
 						
 						AssignExp ae = AssignExp(fc.loc, de, *pe.id);
-						//writeln(ae.toString());
+						// writeln(ae.toString());
 						
 						const size_t lnr = fc.loc.lineNum - 1;
 						if (lnr !in temps)
@@ -74,6 +88,7 @@ void main(string[] args) {
 						temps[lnr].aes ~= ae;
 						
 						pe.id = de.name;
+						
 						// writeln(fc.toString());
 					}
 				}
@@ -107,18 +122,30 @@ void main(string[] args) {
 	}
 	
 	if (detectUnused) {
+		size_t counter = 0;
 		foreach (ref const VarDecl vd; p.varDecls) {
-			if (vd.inuse == 0)
-				writefln("Variable '%s' of type '%s' declared on line %d is never read.", vd.name.toString(), vd.type.toString(), vd.loc.lineNum);
+			if (vd.inuse == 0) {
+				writefln("Variable '%s' of type '%s' declared on line %d is never assigned.", vd.name.toString(), vd.type.toString(), vd.loc.lineNum);
+				
+				counter++;
+			}
 		}
+		
+		writefln(" -- You have %d unused variables.", counter);
 	}
 	
 	if (detectUnderUsed) {
+		size_t counter = 0;
 		foreach (ref const AssignExp ae; p.varAssignExps) {
 			const VarDecl vd = ae.varDecl;
-			if (vd.inuse <= 1)
+			if (vd.inuse <= UnderUsed) {
 				writefln("Variable '%s' of type '%s' declared on line %d is used %d times.", vd.name.toString(), vd.type.toString(), vd.loc.lineNum, vd.inuse);
+				
+				counter++;
+			}
 		}
+		
+		writefln(" -- You have %d variables which are used only %d or less times.", counter, UnderUsed);
 	}
 	
 	if (compile) {
