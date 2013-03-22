@@ -1,7 +1,7 @@
 module Dat.DParser;
 
 import std.stdio;
-import std.algorithm : splitter, canFind;
+import std.algorithm : popFront, splitter, canFind;
 import std.conv : to;
 
 import Dat.DLexer;
@@ -403,13 +403,6 @@ public:
 		return null;
 	}
 	
-	const(FuncDecl)* isMethod(const Identifier* id) const pure nothrow {
-		if (!id)
-			return null;
-		
-		return isFunc(id.toks[$ - 1].toChars());
-	}
-	
 	const(FuncDecl)* isMethod(string name) {
 		return isFunc(name.splitter('.').back);
 	}
@@ -574,8 +567,18 @@ public:
 				const Keyword* kw = count(mid) == 1 ? isKeyword(mid.toks[0]) : null;
 				
 				/// ignore normal Keywords, except structs
-				if (kw && !kw.isBasicType && kw.tok != KeyTok.Struct)
+				if (kw && !kw.isBasicType && kw.tok != KeyTok.Struct) {
+					/// if it is an alias or typedef decl. ignore the whole line.
+					if (kw && 
+						(kw.tok == KeyTok.Alias || kw.tok == KeyTok.Typedef))
+					{
+						while (this.lex.token != Tok.Semicolon)
+							this.nextToken();
+						this.match(';');
+					}
+					
 					continue;
+				}
 				
 				if (*this.peekNext() == Tok.LParen) {
 					if (!kw || kw.isBasicType) {
@@ -607,7 +610,9 @@ public:
 			} else if (count(mid) && this.lex.token == Tok.LParen) {
 				const Keyword* kw = count(mid) == 1 ? isKeyword(mid.toks[0]) : null;
 				/// Is function call?
-				if (!kw && (isFunc(mid.toString()) || isMethod(mid))) {
+				if (!kw && (isFunc(mid.toString()) 
+					|| isMethod(mid.toString())))
+				{
 					debug writefln("\t @ %d Function Call: %s", this.loc.lineNum, mid.toString());
 					
 					this.parseFuncCall(mid);
@@ -814,6 +819,23 @@ public:
 			this.match(';');
 			debug writeln(fc.toString());
 			this.funcCalls ~= fc;
+		}
+		
+		/// Look for 'assigned' variables
+		foreach (ref const ParamExp pe; fc.pexp) {
+			if (!pe.id)
+				error("Invalid Parameter.", pe.loc);
+			
+			string vname = pe.id.toString();
+			/// is/was pointer?
+			if (pe.id.toks[0] == Tok.BitAnd || pe.id.toks[0] == Tok.Star)
+				vname.popFront();
+			
+			/// is known variable?
+			if (auto vd = isVar(vname)) {
+				// writeln(pe.loc.lineNum, " :: ", vd.loc.lineNum, " -- ", vd.name.toString());
+				vd.inuse++;
+			}
 		}
 	}
 	

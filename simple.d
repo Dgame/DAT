@@ -133,7 +133,7 @@ void main(string*[][] args) {
 	foo11(A(42), A(23, 42));
 	foo11(A(42), A(42));
 	A a2;
-	foo11(A(23), a2);
+	foo11(A(23), &a2);
 	
 	foo21(Vector2!float(42));
 	foo21(Vector2!(float)(42));
