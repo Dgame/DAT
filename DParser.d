@@ -310,13 +310,14 @@ private static const Keyword[][256] keywords = [
 const(Keyword)* isKeyword(ref const Token t) {
 	const char[] value = t.toChars();
 	const int fl = value[0] != '_' ? value[0] - 96 : 0;
+	
 	scope(failure) writeln(" -> ", value[0], fl);
+	
 	if (fl < 0 || keywords[fl].length == 0)
 		return null;
 	
 	for (size_t i = 0; i < keywords[fl].length; ++i) {
 		if (keywords[fl][i].name == value) {
-			// t.type = keywords[i].tok;
 			return &keywords[fl][i];
 		}
 	}
@@ -414,7 +415,7 @@ public:
 			return vd;
 		}
 		
-		foreach (ref AssignExp ae; this.varAssignExps) {
+		foreach_reverse (ref AssignExp ae; this.varAssignExps) {
 			if (ae.varDecl.name.toString() == id2)
 				return &ae.varDecl;
 		}
@@ -425,7 +426,7 @@ public:
 	VarDecl* isVarDecl(const char[] id) {
 		auto id2 = id.canFind('.') ? id.splitter('.').back : id;
 		
-		foreach (ref VarDecl vd; this.varDecls) {
+		foreach_reverse (ref VarDecl vd; this.varDecls) {
 			if (vd.name.toString() == id2)
 				return &vd;
 		}
@@ -453,6 +454,11 @@ public:
 			default:
 				return Tok.None;
 		}
+	}
+	
+	void ignoreTo(Tok upto) {
+		while (this.lex.token != upto)
+			this.nextToken();
 	}
 	
 	void match(Tok type, string file = __FILE__, size_t line = __LINE__) {
@@ -483,13 +489,11 @@ public:
 	}
 	
 	Identifier* summarize() {
-		Token t = this.lex.token;
-		
-		if (t.type != Tok.Identifier)
+		if (this.lex.token.type != Tok.Identifier)
 			return null;
 		
 		Token[] ttoks;
-		ttoks ~= t;
+		ttoks ~= this.lex.token;
 		
 		this.nextToken();
 		
@@ -549,6 +553,7 @@ public:
 		Token* t = this.nextToken();
 		
 		do {
+			// writefln("Token: %s", t.toChars());
 			Identifier* mid = this.summarize();
 			// if (mid)
 				// writeln('@', mid.loc.lineNum, " -- ", mid.toString(), " : ", this.lex.token.toChars());
@@ -556,7 +561,7 @@ public:
 			const Tok expType = isExpression(this.lex.token);
 			
 			if (count(mid) && expType != Tok.None) {
-				// writeln(this.loc.lineNum, " : EXPRESSION");
+				// writefln("EXPRESSION @ %d : %s", this.loc.lineNum, mid.toString());
 				this.parseVarExp(mid, expType);
 				
 				continue;
@@ -572,8 +577,7 @@ public:
 					if (kw && 
 						(kw.tok == KeyTok.Alias || kw.tok == KeyTok.Typedef))
 					{
-						while (this.lex.token != Tok.Semicolon)
-							this.nextToken();
+						this.ignoreTo(Tok.Semicolon);
 						this.match(';');
 					}
 					
@@ -608,6 +612,7 @@ public:
 					continue;
 				}
 			} else if (count(mid) && this.lex.token == Tok.LParen) {
+				// writeln(mid.toString(), " == ", this.lex.token.toChars());
 				const Keyword* kw = count(mid) == 1 ? isKeyword(mid.toks[0]) : null;
 				/// Is function call?
 				if (!kw && (isFunc(mid.toString()) 
@@ -618,30 +623,21 @@ public:
 					this.parseFuncCall(mid);
 					
 					continue;
-				} else {
-					if (kw && kw.tok == KeyTok.This) {
-						debug writeln(this.loc.lineNum, ':', "CTOR");
+				} else if (kw && kw.tok == KeyTok.This) {
+					debug writeln(this.loc.lineNum, ':', "CTOR");
+					
+					version (none) {
+						/// Parse CTor declaration
+						this.parseCTorDecl();
 						
-						version (none) {
-							/// Parse CTor declaration
-							this.parseCTorDecl();
-							
-							continue;
-						} else {
-							/// Garbage
-							
-							// this.match(Tok.Identifier);
-							this.match('(');
-							
-							while (this.lex.token != Tok.LCurly)
-								this.nextToken();
-							
-							this.match('{');
-						}
+						continue;
 					} else {
 						/// Garbage
+						
 						// this.match(Tok.Identifier);
 						this.match('(');
+						this.ignoreTo(Tok.LCurly);
+						this.match('{');
 					}
 				}
 			}
@@ -665,25 +661,17 @@ public:
 			vd.inuse++; 
 		
 		/// ignore exp. assignment
-		while (true) {
-			if (this.lex.token == Tok.Semicolon || this.lex.token == Tok.Eof)
-				break;
-			
-			this.nextToken();
-		}
-		
+		this.ignoreTo(Tok.Semicolon);
 		this.match(';');
 	}
 	
 	void parseVarDecl(Identifier* id) {
-		// Token ty = this.lex.token;
-		// this.match(Tok.Identifier);
 		Token tv = this.lex.token;
 		debug writeln(" VD => ", tv.toChars());
 		this.match(Tok.Identifier);
 		
 		VarDecl vd = VarDecl(this.loc);
-		vd.type = id;//new Identifier(this.loc, ty);
+		vd.type = id;
 		vd.name = new Identifier(this.loc, tv);
 		
 		/// Assign?
@@ -718,7 +706,6 @@ public:
 	void parseFuncCall(const Identifier* mid) {
 		FuncCall fc = FuncCall(this.loc, mid.toString());
 		
-		// this.match(Tok.Identifier);
 		this.match('(');
 		
 		if (this.lex.token == Tok.RParen)
@@ -731,7 +718,6 @@ public:
 			
 			/// is Identifier or rvalue?
 			if (tp == Tok.Identifier) {
-				// this.match(Tok.Identifier);
 				id = this.summarize(); /// collects also tp
 			} else {
 				Token[] ttoks;
@@ -843,7 +829,6 @@ public:
 		RetType rt  = RetType(kw, id);
 		FuncDecl fd = FuncDecl(this.loc, rt, this.lex.token);
 		
-		// this.match(Tok.Identifier);
 		this.match(Tok.Identifier);
 		this.match('(');
 		
@@ -887,12 +872,7 @@ public:
 			if (tv != Tok.Identifier || *this.peekNext2() == Tok.LParen) {
 				debug writeln("\tTPL: ", fd.name);
 				
-				while (true) {
-					this.nextToken();
-					if (this.lex.token == Tok.LCurly || this.lex.token == Tok.Eof)
-						break;
-				}
-				
+				this.ignoreTo(Tok.LCurly);
 				this.match('{');
 				
 				return; /// abort here

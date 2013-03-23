@@ -145,6 +145,28 @@ void main(string*[][] args) {
 	
 	foo4(Test.Bar);
 	
+	int i;
+	while (i = fgets()) {
+	
+	}
+	
+	for (int c; (c = FGETWC(fp)) != -1; ) { }
+	
+	L1:
+	auto app = appender(buf);
+	app.clear();
+	if(app.capacity == 0)
+		app.reserve(128); // get at least 128 bytes available
+
+	int c;
+	// while((c = FGETC(fp)) != -1) {
+		// app.put(cast(char) c);
+		// if(c == terminator) {
+			// buf = app.data;
+			// return buf.length;
+		// }
+	// }
+	
 	string foo;
 	
 	int f = 42;
