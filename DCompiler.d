@@ -30,7 +30,7 @@ public:
 enum UnderUsed = 1;
 
 void main(string[] args) {
-	bool compile, resolveRRef, detectUnused, detectUnderUsed;
+	bool compile, resolveRRef, detectUnused, detectUnderUsed, list;
 	string file;
 	
 	getopt(
@@ -39,6 +39,7 @@ void main(string[] args) {
 		"autoRef", &resolveRRef,
 		"unused", &detectUnused,
 		"underused", &detectUnderUsed,
+		"list", &list,
 		"file|f", &file
 	);
 	
@@ -48,7 +49,7 @@ void main(string[] args) {
 	Parser p = Parser(file);
 	
 	/// Parse only if needed
-	if (resolveRRef || detectUnused || detectUnderUsed)
+	if (resolveRRef || detectUnused || detectUnderUsed || list)
 		p.parse();
 	
 	// foreach (ref const FuncDecl fd; p.funcDecls)
@@ -131,7 +132,25 @@ void main(string[] args) {
 			}
 		}
 		
-		writefln(" -- You have %d unused variables.", counter);
+		writefln("\n -- You have %d unused variables.", counter);
+		
+		writeln("\n----\n");
+		
+		counter = 0;
+		foreach (ref const FuncDecl fd; p.funcDecls) {
+			bool called = false;
+			foreach (ref const FuncCall fc; p.funcCalls) {
+				if (fd.name == fc.name)
+					called = true;
+			}
+			
+			if (!called) {
+				counter++;
+				writefln("Function %s declared on line %d is never used.", fd.name, fd.loc.lineNum);
+			}
+		}
+		
+		writefln("\n -- You have %d unused functions.", counter);
 	}
 	
 	if (detectUnderUsed) {
@@ -146,6 +165,16 @@ void main(string[] args) {
 		}
 		
 		writefln(" -- You have %d variables which are used only %d or less times.", counter, UnderUsed);
+	}
+	
+	if (list) {
+		writefln("\n -- Variable use (%d):", p.varAssignExps.length);
+		
+		foreach (ref const AssignExp ae; p.varAssignExps) {
+			const VarDecl vd = ae.varDecl;
+			
+			writefln("Variable '%s' of type '%s' declared on line %d is used %d times.", vd.name.toString(), vd.type.toString(), ae.loc.lineNum, vd.inuse);
+		}
 	}
 	
 	if (compile) {

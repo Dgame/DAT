@@ -181,6 +181,8 @@ void main(string*[][] args) {
 	Vector!(float) vf;
 	
 	foo = "abc";
+	f += 2;
+	f = 3;
 	
 	Foo!(int, float) ftpl;
 	

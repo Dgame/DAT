@@ -1,7 +1,7 @@
 module Dat.DParser;
 
 import std.stdio;
-import std.algorithm : popFront, splitter, canFind;
+import std.algorithm : popFront, popBack, back, splitter, canFind;
 import std.conv : to;
 
 import Dat.DLexer;
@@ -417,7 +417,7 @@ public:
 		
 		foreach_reverse (ref AssignExp ae; this.varAssignExps) {
 			if (ae.varDecl.name.toString() == id2)
-				return &ae.varDecl;
+				return &(ae.varDecl);
 		}
 		
 		return null;
@@ -561,7 +561,7 @@ public:
 			const Tok expType = isExpression(this.lex.token);
 			
 			if (count(mid) && expType != Tok.None) {
-				// writefln("EXPRESSION @ %d : %s", this.loc.lineNum, mid.toString());
+				// writefln("EXPRESSION @ %d : %s -> %s", this.loc.lineNum, mid.toString(), expType);
 				this.parseVarExp(mid, expType);
 				
 				continue;
@@ -653,12 +653,14 @@ public:
 	}
 	
 	void parseVarExp(const Identifier* id, Tok expType) {
-		debug writefln("VarExp: %s", id.toString());
+		// writefln("VarExp: %s", id.toString());
 		this.match(expType);
 		
 		/// increase var use counter
-		if (auto vd = isVar(id.toString()))
-			vd.inuse++; 
+		if (VarDecl* vd = isVar(id.toString())) {
+			// writeln(vd.name.toString(), ':',vd.inuse);
+			vd.inuse += 1;
+		}
 		
 		/// ignore exp. assignment
 		this.ignoreTo(Tok.Semicolon);
