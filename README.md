@@ -20,4 +20,14 @@ Options
 <li><code>--compile</code>     Compiles the new files, if any. (Not implemented)</li>
 </ul>
 
+TODO:
+===
+<ul>
+<li>Improve detection of unused variables.</li>
+<li>Implement detection of unused functions.</li>
+<li>Implement detection of unused structs.</li>
+<li>Implement listing of all variables/functions and their use counter.</li>
+<li>Implement drop option for unused variables/functions.</li>
+</ul>
+
 <b>Note that this is only a beta.</b>
