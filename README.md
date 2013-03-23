@@ -3,7 +3,13 @@ DAT
 
 <b>D</b> <b>a</b>nalysis <b>t</b>ool
 
-<b>DAT</b> can resolve rvalue references and unused or underused variables.
+<b>DAT</b> can
+<ul>
+<li>resolve rvalue references</li>
+<li>detect unused or underused variables</li>
+<li>detect unused functions</li>
+<li>enumerate all detected variables along with their frequency of use.</li>
+</ul>
 
 Usage
 ===
@@ -18,7 +24,7 @@ Options
 <li><code>--unused</code>       Detects completly unused variables.</li>
 <li><code>--underused</code>    Detects Variables which are used one time or less.</li>
 <li><code>--compile</code>      Compiles the new files, if any. (Not implemented)</li>
-<li><code>--list</code>         Lists all variables, their declaration line and their use counter.</li>
+<li><code>--list</code>         Lists all detected variables, their declaration line and their frequency of use.</li>
 </ul>
 
 TODO:
