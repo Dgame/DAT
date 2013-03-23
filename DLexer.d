@@ -417,6 +417,14 @@ struct Lexer {
 						_p++;
 					}
 					
+					if (_p - oldp) {
+						t.type = Tok.Property;
+						t.ptr  = oldp;
+						t.len  = _p - oldp;
+					} else {
+						t.type = Tok.At;
+					}
+					/*
 					switch (oldp[0 .. (_p - oldp)]) {
 						case "@property":
 						case "@safe":
@@ -432,6 +440,7 @@ struct Lexer {
 							_p = oldp;
 							_p++;
 					}
+					*/
 				return;
 				
 				case '=':
