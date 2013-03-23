@@ -573,12 +573,11 @@ public:
 				
 				/// ignore normal Keywords, except structs
 				if (kw && !kw.isBasicType && kw.tok != KeyTok.Struct) {
-					/// if it is an alias or typedef decl. ignore the whole line.
+					/// is it an alias or typedef decl?
 					if (kw && 
 						(kw.tok == KeyTok.Alias || kw.tok == KeyTok.Typedef))
 					{
-						this.ignoreTo(Tok.Semicolon);
-						this.match(';');
+						this.parseAliasDecl();
 					}
 					
 					continue;
@@ -624,26 +623,28 @@ public:
 					
 					continue;
 				} else if (kw && kw.tok == KeyTok.This) {
-					debug writeln(this.loc.lineNum, ':', "CTOR");
-					
-					version (none) {
-						/// Parse CTor declaration
-						this.parseCTorDecl();
+					/// Parse CTor declaration
+					this.parseCTorDecl();
 						
-						continue;
-					} else {
-						/// Garbage
-						
-						// this.match(Tok.Identifier);
-						this.match('(');
-						this.ignoreTo(Tok.LCurly);
-						this.match('{');
-					}
+					continue;
 				}
 			}
 			
 			t = this.nextToken();
 		} while (t.type != Tok.Eof);
+	}
+	
+	void parseCTorDecl() {
+		debug writeln(this.loc.lineNum, ':', "CTOR");
+		// this.match(Tok.Identifier);
+		this.match('(');
+		this.ignoreTo(Tok.LCurly);
+		this.match('{');
+	}
+	
+	void parseAliasDecl() {
+		this.ignoreTo(Tok.Semicolon);
+		this.match(';');
 	}
 	
 	void parseStructDecl() {
@@ -699,10 +700,6 @@ public:
 		
 		this.match(';');
 		this.varDecls ~= vd;
-	}
-	
-	void parseCTorDecl() {
-		// TODO
 	}
 	
 	void parseFuncCall(const Identifier* mid) {
@@ -874,6 +871,7 @@ public:
 			if (tv != Tok.Identifier || *this.peekNext2() == Tok.LParen) {
 				debug writeln("\tTPL: ", fd.name);
 				
+				/// ignore function remainder
 				this.ignoreTo(Tok.LCurly);
 				this.match('{');
 				

@@ -866,7 +866,9 @@ struct Lexer {
 	
 	// while (t.type != Tok.Eof) {
 		// lex.scan(&t);
-		// debug writeln("@ ", lex.loc.lineNum, " : ", t.type, " <-> ", t.toChars());
+		// // debug writeln("@ ", lex.loc.lineNum, " : ", t.type, " <-> ", t.toChars());
+		// if (t.type == Tok.Property)
+			// writeln("@ ", lex.loc.lineNum, " : ", t.type, " <-> ", t.toChars());
 	// }
 	
 	// debug writeln("----");

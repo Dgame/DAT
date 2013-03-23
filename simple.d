@@ -159,13 +159,13 @@ void main(string*[][] args) {
 		app.reserve(128); // get at least 128 bytes available
 
 	int c;
-	// while((c = FGETC(fp)) != -1) {
-		// app.put(cast(char) c);
-		// if(c == terminator) {
-			// buf = app.data;
-			// return buf.length;
-		// }
-	// }
+	while((c = FGETC(fp)) != -1) {
+		app.put(cast(char) c);
+		if(c == terminator) {
+			buf = app.data;
+			return buf.length;
+		}
+	}
 	
 	string foo;
 	
