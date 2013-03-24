@@ -15,6 +15,8 @@ Usage
 ===
 Example:
 <code>DCompiler --file mytest.d --autoref --unused</code>
+Or with logging:
+<code>DCompiler --file mytest.d --autoref --unused --log log.txt</code>
 
 Options
 ===
@@ -25,6 +27,7 @@ Options
 <li><code>--underused</code>    Detects Variables which are used one time or less.</li>
 <li><code>--compile</code>      Compiles the new files, if any. (Not implemented)</li>
 <li><code>--list</code>         Lists all detected variables, their declaration line and their frequency of use.</li>
+<li><code>--log</code>          Redirect output to the log file.
 </ul>
 
 TODO:
