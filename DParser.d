@@ -521,8 +521,7 @@ public:
 	}
 	
 	Identifier* summarize() {
-		writeln(this.lex.token.toChars());
-		
+		// writeln(this.lex.token.toChars());
 		if (this.lex.token.type != Tok.Identifier)
 			return null;
 		
@@ -1064,6 +1063,7 @@ public:
 				break;
 		}
 		
+		/// Jump to, if parameter list is empty.
 		Ldone:
 		
 		this.match(')');

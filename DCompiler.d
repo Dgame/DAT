@@ -52,12 +52,12 @@ void main(string[] args) {
 	if (resolveRRef || detectUnused || detectUnderUsed || list)
 		p.parse();
 	
-	writeln(":::::::::::::::::::::");
+	// writeln(":::::::::::::::::::::");
 	// foreach (ref const FuncDecl fd; p.funcDecls)
 		// writeln(fd.toString());
 	// foreach (ref const FuncCall fc; p.funcCalls)
 		// writeln(fc.toString());
-	writeln(":::::::::::::::::::::");
+	// writeln(":::::::::::::::::::::");
 	
 	if (resolveRRef) {
 		string[] flines = (cast(string) std.file.read(file)).splitLines();
