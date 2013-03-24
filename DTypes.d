@@ -103,6 +103,7 @@ public:
 	const Loc loc;
 	const string id; /// preferred
 	Token[] toks;
+	
 	bool isDelegate;
 	
 	this(ref const Loc loc, Token[] toks) {
@@ -126,11 +127,6 @@ public:
 		this.isDelegate = id.isDelegate;
 	}
 	
-	@property
-	ref const(Token) type() const pure nothrow {
-		return this.toks[0];
-	}
-	
 	string toString() const pure nothrow {
 		if (this.id.length != 0)
 			return this.id;
@@ -152,24 +148,26 @@ public:
 struct VarDecl {
 public:
 	const Loc loc;
-	Mod mod;
+	const Mod mod;
+	const string name;
 	Identifier* type;
-	Identifier* name;
 	
 	size_t inuse;
 	
-	this(ref const Loc loc) {
+	this(ref const Loc loc, string name, Mod mod = Mod.none) {
 		this.loc = loc;
+		this.name = name;
+		this.mod = mod;
 	}
 	
-	string toString(bool noSem) const {
+	string toString(bool noSem = false) const {
 		string end = noSem ? "" : ";";
 		
 		if (this.mod == Mod.none) {
-			return this.type.toString() ~ ' ' ~ this.name.toString() ~ end;
+			return this.type.toString() ~ ' ' ~ this.name ~ end;
 		}
 		
-		return to!(string)(this.mod) ~ ' ' ~ this.type.toString() ~ ' ' ~ this.name.toString() ~ end;
+		return to!(string)(this.mod) ~ ' ' ~ this.type.toString() ~ ' ' ~ this.name ~ end;
 	}
 }
 
@@ -228,22 +226,20 @@ public:
 	const Loc loc;
 	/// auch als Identifier, wegen Templates.
 	const Identifier type;
-	const Token var;
+	const string var;
 	Identifier* value;
 	STC storage;
 	
-	this(ref const Loc loc, ref Token tok, ref const Token var, STC stc) {
+	this(ref const Loc loc, ref Token tok, string var, STC stc) {
 		this.type = Identifier(loc, tok);
 		// writeln(" :: ", this.type.toString(), " <-> ", var.toChars());
-		
 		this.loc = loc;
 		this.var = var;
 		this.storage = stc;
 	}
 	
-	this(ref const Loc loc, ref const Identifier id, ref const Token var, STC stc) {
+	this(ref const Loc loc, ref const Identifier id, string var, STC stc) {
 		// writeln(" :: ", id.toString(), " <-> ", var.toChars());
-		
 		this.loc = loc;
 		this.type = id;
 		this.var = var;
@@ -251,11 +247,11 @@ public:
 	}
 	
 	string toString() const {
-		auto output = toStr(this.storage) ~ this.type.toString() ~ ' ' ~ this.var.toChars();
+		string output = toStr(this.storage) ~ this.type.toString() ~ ' ' ~ this.var;
 		if (this.value)
 			output ~= " = " ~ this.value.toString();
 		
-		return cast(string) output;
+		return output;
 	}
 }
 
@@ -280,7 +276,7 @@ public:
 	const string name;
 	ParamExp[] pexp;
 	
-	this(ref const Loc loc, const char[] name) {
+	this(ref const Loc loc, string name) {
 		this.loc = loc;
 		this.name = cast(string) name;
 	}

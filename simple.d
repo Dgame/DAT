@@ -137,6 +137,10 @@ unittest
     if (false) readf("%s %s %s", &a,&b,&c);
 }
 
+void arrTest(int[][] marr, float[] farr, string[string] map) {
+
+}
+
 void main(string*[][] args) {
 	foo1(A());
 	foo1(A(42));

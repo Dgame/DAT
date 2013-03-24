@@ -170,7 +170,7 @@ private static const string[66] tokenValues = [
 	"Eof"
 ];
 
-static auto getTokenValue(Tok tok) pure nothrow {
+static string getTokenValue(Tok tok) pure nothrow {
 	return tok < tokenValues.length ? tokenValues[tok] : "Undefinied Tok";
 }
 
@@ -183,8 +183,8 @@ public:
 	
 	Tok type;
 	
-	const(char[]) toChars() const pure nothrow {
-		return this.ptr ? this.ptr[0 .. this.len] : getTokenValue(this.type);
+	string toChars() const pure nothrow {
+		return this.ptr ? cast(string) this.ptr[0 .. this.len] : getTokenValue(this.type);
 	}
 	
 	bool isIdentifier() const pure nothrow {

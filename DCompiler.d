@@ -31,7 +31,7 @@ enum UnderUsed = 1;
 
 void main(string[] args) {
 	bool compile, resolveRRef, detectUnused, detectUnderUsed, list;
-	string file;
+	string file, logFile;
 	
 	getopt(
 		args,
@@ -40,11 +40,16 @@ void main(string[] args) {
 		"unused", &detectUnused,
 		"underused", &detectUnderUsed,
 		"list", &list,
-		"file|f", &file
+		"file|f", &file,
+		"log", &logFile
 	);
 	
+	File log = stdout;
+	if (logFile.length)
+		log = File(logFile, "w+");
+		
 	if (detectUnused && detectUnderUsed)
-		writeln(" -- 'detectUnused' and 'detectUnderUsed' could match the same.");
+		log.writeln(" -- 'detectUnused' and 'detectUnderUsed' could match the same.");
 	
 	Parser p = Parser(file);
 	
@@ -55,8 +60,8 @@ void main(string[] args) {
 	// writeln(":::::::::::::::::::::");
 	// foreach (ref const FuncDecl fd; p.funcDecls)
 		// writeln(fd.toString());
-	// foreach (ref const FuncCall fc; p.funcCalls)
-		// writeln(fc.toString());
+	// // foreach (ref const FuncCall fc; p.funcCalls)
+		// // writeln(fc.toString());
 	// writeln(":::::::::::::::::::::");
 	
 	if (resolveRRef) {
@@ -78,9 +83,8 @@ void main(string[] args) {
 					{
 						// writeln(" #-> ", fd.params[i].type.toString());
 						
-						VarDecl de = VarDecl(fc.loc);
+						VarDecl de = VarDecl(fc.loc, genId("tempRR"));
 						de.type = new Identifier(fc.loc, "auto");
-						de.name = new Identifier(fc.loc, genId("tempRR"));
 						
 						AssignExp ae = AssignExp(fc.loc, de, *pe.id);
 						// writeln(ae.toString());
@@ -90,7 +94,7 @@ void main(string[] args) {
 							temps[lnr] = Temp(flines[lnr].replace(" ", ""), fc.toString());
 						temps[lnr].aes ~= ae;
 						
-						pe.id = de.name;
+						pe.id = new Identifier(de.loc, de.name);
 						
 						// writeln(fc.toString());
 					}
@@ -128,15 +132,15 @@ void main(string[] args) {
 		size_t counter = 0;
 		foreach (ref const VarDecl vd; p.varDecls) {
 			if (vd.inuse == 0) {
-				writefln("Variable '%s' of type '%s' declared on line %d is never assigned.", vd.name.toString(), vd.type.toString(), vd.loc.lineNum);
+				log.writefln("Variable '%s' of type '%s' declared on line %d is never assigned.", vd.name, vd.type.toString(), vd.loc.lineNum);
 				
 				counter++;
 			}
 		}
 		
-		writefln("\n -- You have %d unused variables.", counter);
+		log.writefln("\n -- You have %d unused variables.", counter);
 		
-		writeln("\n----\n");
+		log.writeln("\n----\n");
 		
 		counter = 0;
 		foreach (ref const FuncDecl fd; p.funcDecls) {
@@ -148,11 +152,11 @@ void main(string[] args) {
 			
 			if (!called) {
 				counter++;
-				writefln("Function %s declared on line %d is never used.", fd.name, fd.loc.lineNum);
+				log.writefln("Function %s declared on line %d is never used.", fd.name, fd.loc.lineNum);
 			}
 		}
 		
-		writefln("\n -- You have %d unused functions.", counter);
+		log.writefln("\n -- You have %d unused functions.", counter);
 	}
 	
 	if (detectUnderUsed) {
@@ -160,22 +164,22 @@ void main(string[] args) {
 		foreach (ref const AssignExp ae; p.varAssignExps) {
 			const VarDecl vd = ae.varDecl;
 			if (vd.inuse <= UnderUsed) {
-				writefln("Variable '%s' of type '%s' declared on line %d is used %d times.", vd.name.toString(), vd.type.toString(), vd.loc.lineNum, vd.inuse);
+				log.writefln("Variable '%s' of type '%s' declared on line %d is used %d times.", vd.name, vd.type.toString(), vd.loc.lineNum, vd.inuse);
 				
 				counter++;
 			}
 		}
 		
-		writefln(" -- You have %d variables which are used only %d or less times.", counter, UnderUsed);
+		log.writefln(" -- You have %d variables which are used only %d or less times.", counter, UnderUsed);
 	}
 	
 	if (list) {
-		writefln("\n -- Variable use (%d):", p.varAssignExps.length);
+		log.writefln("\n -- Variable use (%d):", p.varAssignExps.length);
 		
 		foreach (ref const AssignExp ae; p.varAssignExps) {
 			const VarDecl vd = ae.varDecl;
 			
-			writefln("Variable '%s' of type '%s' declared on line %d is used %d times.", vd.name.toString(), vd.type.toString(), ae.loc.lineNum, vd.inuse);
+			log.writefln("Variable '%s' of type '%s' declared on line %d is used %d times.", vd.name, vd.type.toString(), ae.loc.lineNum, vd.inuse);
 		}
 	}
 	

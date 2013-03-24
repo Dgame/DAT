@@ -65,12 +65,48 @@ static TickDuration currSystemTick()
 	return TickDuration.currSystemTick;
 }
 
+static SysTime currTime(immutable TimeZone tz = LocalTime())
+{
+	return SysTime(currStdTime, tz);
+}
+
 void test(int i) in {
 
 } out {
 
 } body {
 
+}
+
+struct IntWrapper
+{
+	int value;
+
+	this(int value)
+	{
+		this.value = value;
+	}
+
+	IntWrapper opOpAssign(string op)(IntWrapper rhs)
+	{
+		mixin("this.value " ~ op ~ "= rhs.value;");
+
+		return this;
+	}
+
+	string toString() const
+	{
+		return to!string(value);
+	}
+}
+
+class Foo {
+public:
+	bool init;
+	
+	void init() {
+		this.init = true;
+	}
 }
 
 ref SysTime add(string units)(long value, AllowDayOverflow allowOverflow = AllowDayOverflow.yes) nothrow {
@@ -85,6 +121,26 @@ private alias std.string.indexOf stds_indexOf;
 static alias std.string.indexOf stds_indexOf;
 alias std.string.indexOf stds_indexOf;
 
+uint readf(A...)(in char[] format, A args)
+{
+    return stdin.readf(format, args);
+}
+
+unittest
+{
+    float f;
+    if (false) uint x = readf("%s", &f);
+
+    char a;
+    wchar b;
+    dchar c;
+    if (false) readf("%s %s %s", &a,&b,&c);
+}
+
+void arrTest(int[][] marr, float[] farr, string[string] map) {
+
+}
+
 void main(string*[][] args) {
 auto __tempRR0 = A();  	foo1(__tempRR0);
 auto __tempRR1 = A(42);  	foo1(__tempRR1);
@@ -97,7 +153,7 @@ auto __tempRR3 = A(42,23);  	foo12(__tempRR3,A(42));
 auto __tempRR5 = A(42); auto __tempRR6 = A(23,42);  	foo11(__tempRR5,__tempRR6);
 auto __tempRR7 = A(42); auto __tempRR8 = A(42);  	foo11(__tempRR7,__tempRR8);
 	A a2;
-auto __tempRR9 = A(23);  	foo11(__tempRR9,a2);
+auto __tempRR9 = A(23);  	foo11(__tempRR9,&a2);
 	
 auto __tempRR10 = Vector2!float(42);  	foo21(__tempRR10);
 auto __tempRR11 = Vector2!(float)(42);  	foo21(__tempRR11);
@@ -108,6 +164,28 @@ auto __tempRR13 = Vector2!(float)(42);  	f.foo(__tempRR13);
 auto __tempRR14 = Vector2!float(42);  	f.foo(__tempRR14);
 	
 	foo4(Test.Bar);
+	
+	int i;
+	while (i = fgets()) {
+	
+	}
+	
+	for (int c; (c = FGETWC(fp)) != -1; ) { }
+	
+	L1:
+	auto app = appender(buf);
+	app.clear();
+	if(app.capacity == 0)
+		app.reserve(128); // get at least 128 bytes available
+
+	int c;
+	while((c = FGETC(fp)) != -1) {
+		app.put(cast(char) c);
+		if(c == terminator) {
+			buf = app.data;
+			return buf.length;
+		}
+	}
 	
 	string foo;
 	
@@ -123,9 +201,23 @@ auto __tempRR14 = Vector2!float(42);  	f.foo(__tempRR14);
 	Vector!(float) vf;
 	
 	foo = "abc";
+	f += 2;
+	f = 3;
 	
 	Foo!(int, float) ftpl;
 	
+	static bool _initialized;
+
+	//TODO Make this use double-checked locking once shared has been fixed
+	//to use memory fences properly.
+	if(!_initialized) {
+	{
+		if(!_utc)
+			_utc = cast(shared UTC)new immutable(UTC)();
+
+		_initialized = true;
+	}
+
 	return convert!("seconds", "hnsecs")(ts.tv_sec) +
                        ts.tv_nsec / 100 +
                        hnsecsToUnixEpoch;
@@ -161,5 +253,14 @@ auto __tempRR14 = Vector2!float(42);  	f.foo(__tempRR14);
 		}
 		else
 			zoneStr = found[0];
+	}
+	
+	private size_t fwrite_unlocked(const(void)* ptr,
+                size_t size, size_t n, _iobuf *stream) {
+				
+	}
+	
+	void testit(TP delegate(in TP) func) {
+	
 	}
 }

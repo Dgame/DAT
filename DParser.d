@@ -308,7 +308,7 @@ private static const Keyword[][256] keywords = [
 ];
 
 const(Keyword)* isKeyword(ref const Token t) {
-	const char[] value = t.toChars();
+	string value = t.toChars();
 	const int fl = value[0] != '_' ? value[0] - 96 : 0;
 	
 	scope(failure) writeln(" -> ", value[0], fl);
@@ -431,7 +431,7 @@ public:
 		this.lex = new Lexer(filename);
 	}
 	
-	const(Struct)* isStruct(const char[] id) const pure nothrow {
+	const(Struct)* isStruct(string id) const pure nothrow {
 		foreach (ref const Struct s; this.structs) {
 			if (s.tok.toChars() == id)
 				return &s;
@@ -440,7 +440,7 @@ public:
 		return null;
 	}
 
-	const(FuncDecl)* isFunc(const char[] id) const pure nothrow {
+	const(FuncDecl)* isFunc(string id) const pure nothrow {
 		foreach (ref const FuncDecl fd; this.funcDecls) {
 			if (fd.name == id)
 				return &fd;
@@ -449,7 +449,7 @@ public:
 		return null;
 	}
 	
-	const(FuncDecl)* isIgnoredFunc(const char[] id) const pure nothrow {
+	const(FuncDecl)* isIgnoredFunc(string id) const pure nothrow {
 		foreach (ref const FuncDecl fd; this.ignoredFuncDecls) {
 			if (fd.name == id)
 				return &fd;
@@ -462,7 +462,7 @@ public:
 		return isFunc(name.splitter('.').back);
 	}
 	
-	VarDecl* isVar(const char[] id) {
+	VarDecl* isVar(string id) {
 		auto id2 = id.canFind('.') ? id.splitter('.').back : id;
 		
 		if (auto vd = isVarDecl(id2)) {
@@ -470,18 +470,18 @@ public:
 		}
 		
 		foreach_reverse (ref AssignExp ae; this.varAssignExps) {
-			if (ae.varDecl.name.toString() == id2)
+			if (ae.varDecl.name == id2)
 				return &(ae.varDecl);
 		}
 		
 		return null;
 	}
 	
-	VarDecl* isVarDecl(const char[] id) {
+	VarDecl* isVarDecl(string id) {
 		auto id2 = id.canFind('.') ? id.splitter('.').back : id;
 		
 		foreach_reverse (ref VarDecl vd; this.varDecls) {
-			if (vd.name.toString() == id2)
+			if (vd.name == id2)
 				return &vd;
 		}
 		
@@ -511,7 +511,7 @@ public:
 		this.lex.nextToken();
 	}
 
-	void match(const char[] str, string file = __FILE__, size_t line = __LINE__) {
+	void match(string str, string file = __FILE__, size_t line = __LINE__) {
 		if (this.lex.token.toChars() != str) {
 			writeln(file, '@', line);
 			error("found '%s' when expecting '%s'", this.lex.loc,
@@ -711,9 +711,8 @@ public:
 		debug writeln(" VD => ", tv.toChars());
 		this.match(Tok.Identifier);
 		
-		VarDecl vd = VarDecl(this.loc);
+		VarDecl vd = VarDecl(this.loc, tv.toChars());
 		vd.type = id;
-		vd.name = new Identifier(this.loc, tv);
 		
 		/// Assign?
 		if (this.lex.token == Tok.Assign) {
@@ -882,6 +881,7 @@ public:
 			STC stc = parseSTC();
 			
 			Identifier* tyid = this.summarize();
+			
 			if (!tyid) {
 				if (this.lex.token == Tok.LParen 
 					&& *this.peekNext() == Tok.Identifier
@@ -996,7 +996,11 @@ public:
 			} else
 				this.match(Tok.Identifier);			// this.nextToken();
 			
-			fd.params ~= ParamDecl(this.loc, *tyid, tv, stc);
+			if (this.lex.token == Tok.VarArg) {
+				this.match(Tok.VarArg); /// Ignore VarArg. TODO: Add it to type/var
+			}
+			
+			fd.params ~= ParamDecl(this.loc, *tyid, tv.toChars(), stc);
 			
 			/// Next Parameter?
 			if (this.lex.token == Tok.Comma) {

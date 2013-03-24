@@ -1,0 +1,22 @@
+Variable 'vi1' of type 'Vector!(int)' declared on line 199 is never assigned.
+Variable 'vi2' of type 'Vector!int' declared on line 200 is never assigned.
+Variable 'vf' of type 'Vector!(float)' declared on line 201 is never assigned.
+Variable 'ftpl' of type 'Foo!(int,float)' declared on line 207 is never assigned.
+
+ -- You have 4 unused variables.
+
+----
+
+Function foo declared on line 49 is never used.
+Function foo declared on line 53 is never used.
+Function getFoo declared on line 58 is never used.
+Function currSystemTick declared on line 63 is never used.
+Function currTime declared on line 68 is never used.
+Function toString declared on line 97 is never used.
+Function init declared on line 107 is never used.
+Function arrTest declared on line 140 is never used.
+Function main declared on line 144 is never used.
+Function fwrite_unlocked declared on line 258 is never used.
+Function testit declared on line 263 is never used.
+
+ -- You have 11 unused functions.
