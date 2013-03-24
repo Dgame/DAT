@@ -121,6 +121,22 @@ private alias std.string.indexOf stds_indexOf;
 static alias std.string.indexOf stds_indexOf;
 alias std.string.indexOf stds_indexOf;
 
+uint readf(A...)(in char[] format, A args)
+{
+    return stdin.readf(format, args);
+}
+
+unittest
+{
+    float f;
+    if (false) uint x = readf("%s", &f);
+
+    char a;
+    wchar b;
+    dchar c;
+    if (false) readf("%s %s %s", &a,&b,&c);
+}
+
 void main(string*[][] args) {
 	foo1(A());
 	foo1(A(42));
@@ -233,5 +249,14 @@ void main(string*[][] args) {
 		}
 		else
 			zoneStr = found[0];
+	}
+	
+	private size_t fwrite_unlocked(const(void)* ptr,
+                size_t size, size_t n, _iobuf *stream) {
+				
+	}
+	
+	void testit(TP delegate(in TP) func) {
+	
 	}
 }

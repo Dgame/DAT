@@ -364,12 +364,57 @@ bool isValidVarType(const Identifier* id) {
 	return false;
 }
 
+Tok isExpression(ref const Token t) {
+	switch (t.type) {
+		case Tok.BitAndAssign:
+		case Tok.BitOrAssign:
+		case Tok.CatAssign:
+		case Tok.DivAssign:
+		case Tok.MinusAssign:
+		case Tok.ModAssign:
+		case Tok.MulAssign:
+		case Tok.PlusAssign:
+		case Tok.PowAssign:
+		case Tok.UnsignedShiftRightAssign:
+		case Tok.XorAssign:
+		case Tok.Assign:
+		case Tok.Increment:
+		case Tok.Decrement:
+			return t.type;
+		default:
+			return Tok.None;
+	}
+}
+
+bool isEmbraceMod(ref const Token t) {
+	switch (t.toChars()) {
+		case "const":
+		case "immutable":
+		case "inout":
+			return true;
+		default:
+			return false;
+	}
+}
+
+bool isEmbraceMod(STC stc) {
+	if (stc & STC.const_)
+		return true;
+	if (stc & STC.immutable_)
+		return true;
+	if (stc & STC.wild)
+		return true;
+	
+	return false;
+}
+
 struct Parser {
 public:
 	Struct[]   structs;
 	VarDecl[]  varDecls;
 	AssignExp[] varAssignExps;
 	FuncDecl[] funcDecls;
+	FuncDecl[] ignoredFuncDecls;
 	FuncCall[] funcCalls;
 	
 	Lexer* lex;
@@ -397,6 +442,15 @@ public:
 
 	const(FuncDecl)* isFunc(const char[] id) const pure nothrow {
 		foreach (ref const FuncDecl fd; this.funcDecls) {
+			if (fd.name == id)
+				return &fd;
+		}
+		
+		return null;
+	}
+	
+	const(FuncDecl)* isIgnoredFunc(const char[] id) const pure nothrow {
+		foreach (ref const FuncDecl fd; this.ignoredFuncDecls) {
 			if (fd.name == id)
 				return &fd;
 		}
@@ -434,28 +488,6 @@ public:
 		return null;
 	}
 	
-	Tok isExpression(ref const Token t) const pure nothrow {
-		switch (t.type) {
-			case Tok.BitAndAssign:
-			case Tok.BitOrAssign:
-			case Tok.CatAssign:
-			case Tok.DivAssign:
-			case Tok.MinusAssign:
-			case Tok.ModAssign:
-			case Tok.MulAssign:
-			case Tok.PlusAssign:
-			case Tok.PowAssign:
-			case Tok.UnsignedShiftRightAssign:
-			case Tok.XorAssign:
-			case Tok.Assign:
-			case Tok.Increment:
-			case Tok.Decrement:
-				return t.type;
-			default:
-				return Tok.None;
-		}
-	}
-	
 	void ignoreTo(Tok upto) {
 		while (this.lex.token != upto)
 			this.nextToken();
@@ -489,13 +521,14 @@ public:
 	}
 	
 	Identifier* summarize() {
+		writeln(this.lex.token.toChars());
+		
 		if (this.lex.token.type != Tok.Identifier)
 			return null;
 		
 		Token[] ttoks;
 		ttoks ~= this.lex.token;
-		
-		this.nextToken();
+		this.lex.nextToken();
 		
 		while (true) {
 			bool loop = false;
@@ -558,6 +591,8 @@ public:
 			// if (mid)
 				// writeln('@', mid.loc.lineNum, " -- ", mid.toString(), " : ", this.lex.token.toChars());
 				
+			// goto Lend;
+				
 			const Tok expType = isExpression(this.lex.token);
 			
 			if (count(mid) && expType != Tok.None) {
@@ -613,9 +648,11 @@ public:
 			} else if (count(mid) && this.lex.token == Tok.LParen) {
 				// writeln(mid.toString(), " == ", this.lex.token.toChars());
 				const Keyword* kw = count(mid) == 1 ? isKeyword(mid.toks[0]) : null;
+				
+				const string fn = mid.toString();
 				/// Is function call?
-				if (!kw && (isFunc(mid.toString()) 
-					|| isMethod(mid.toString())))
+				if (!kw && 
+					(isFunc(fn) || isMethod(fn) || isIgnoredFunc(fn)))
 				{
 					debug writefln("\t @ %d Function Call: %s", this.loc.lineNum, mid.toString());
 					
@@ -629,6 +666,8 @@ public:
 					continue;
 				}
 			}
+			
+			Lend:
 			
 			t = this.nextToken();
 		} while (t.type != Tok.Eof);
@@ -800,10 +839,14 @@ public:
 		this.match(')');
 		
 		/// If func call is inside of other call, we ignore him.
-		if (this.lex.token == Tok.Semicolon) {
+		if (this.lex.token == Tok.Semicolon)
+		{
 			this.match(';');
-			debug writeln(fc.toString());
-			this.funcCalls ~= fc;
+			/// Save only if it is an unignored function.
+			if (!isIgnoredFunc(mid.toString())) {
+				// writeln(fc.toString());
+				this.funcCalls ~= fc;
+			}
 		}
 		
 		/// Look for 'assigned' variables
@@ -815,7 +858,7 @@ public:
 			/// is/was pointer?
 			if (pe.id.toks[0] == Tok.BitAnd || pe.id.toks[0] == Tok.Star)
 				vname.popFront();
-			
+			// writefln("@ %d -> Check Var: %s", pe.id.loc.lineNum, vname);
 			/// is known variable?
 			if (auto vd = isVar(vname)) {
 				// writeln(pe.loc.lineNum, " :: ", vd.loc.lineNum, " -- ", vd.name.toString());
@@ -840,8 +883,26 @@ public:
 			STC stc = parseSTC();
 			
 			Identifier* tyid = this.summarize();
-			if (!tyid)
-				error("Undefined parameter type.", this.loc);
+			if (!tyid) {
+				if (this.lex.token == Tok.LParen 
+					&& *this.peekNext() == Tok.Identifier
+					&& isEmbraceMod(stc))
+				{
+					Token[] ttoks;
+					// ttoks ~= this.lex.token;
+					this.match('(');
+					ttoks ~= this.lex.token;
+					this.match(Tok.Identifier);
+					// ttoks ~= this.lex.token;
+					this.match(')');
+					
+					tyid = new Identifier(this.loc, ttoks);
+				}
+				
+				if (!tyid)
+					error("Undefined parameter type.", this.loc);
+			}
+			
 			// writeln("Type Id: ", tyid.toString());
 			
 			if (this.lex.token == "delegate" 
@@ -869,13 +930,70 @@ public:
 			/// Is Template?
 			/// 'tv' is same as 'this.lex.token'
 			if (tv != Tok.Identifier || *this.peekNext2() == Tok.LParen) {
-				debug writeln("\tTPL: ", fd.name);
+				// writeln("\tPossible TPL: ", fd.name, " => ", tv.toChars());
 				
-				/// ignore function remainder
-				this.ignoreTo(Tok.LCurly);
-				this.match('{');
+				bool isArray = false;
+				if (tv == Tok.LBracket) {
+					Larray:
+					
+					isArray = true;
+					
+					tyid.toks ~= tv;
+					this.match('[');
+					
+					while (true) {
+						tyid.toks ~= this.lex.token;
+						
+						if (this.lex.token == Tok.RBracket 
+							&& *this.peekNext() != Tok.LBracket)
+						{
+							break;
+						}
+						
+						this.nextToken();
+					}
+					
+					this.match(']');
+					
+					tv = this.lex.token;
+					this.nextToken();
+				}
 				
-				return; /// abort here
+				bool isPtr = false;
+				if (tv == Tok.Star) {
+					isPtr = true;
+					
+					if (!isArray) {
+						tyid.toks ~= tv;
+						
+						this.nextToken();
+					}
+					
+					while (this.lex.token == Tok.Star) {
+						tyid.toks ~= this.lex.token;
+						this.nextToken();
+					}
+					
+					tv = this.lex.token; /// new parameter var
+					
+					if (!isArray && tv == Tok.LBracket)
+						goto Larray;
+					
+					if (tv == Tok.Identifier)
+						this.match(Tok.Identifier);
+					else
+						goto Lignore;
+				}
+				
+				// writeln(fd.name, " => ", tv.toChars());
+				
+				if ((!isArray && !isPtr) || tv != Tok.Identifier) {
+					/// ignore tpl list
+					this.ignoreTo(Tok.RParen);
+					this.match(')');
+					
+					goto Lignore;
+				}
 			} else
 				this.match(Tok.Identifier);			// this.nextToken();
 			
@@ -956,18 +1074,14 @@ public:
 			this.match('{');
 			this.funcDecls ~= fd;
 			
-			// return;
-		}
-		/*
-		/// Is Template?
-		if (this.lex.token == Tok.LParen) {
-			this.match('(');
-			
 			return;
 		}
 		
-		this.match(';'); /// Func Decl. without body
-		*/
+		Lignore:
+		
+		// writeln("Ignored: ", fd.toString());
+		
+		this.ignoredFuncDecls ~= fd;
 	}
 	
 	void parseContract() {
