@@ -15,6 +15,7 @@ Usage
 ===
 Example:
 <code>DCompiler --file mytest.d --autoref --unused</code>
+<br />
 Or with logging:
 <code>DCompiler --file mytest.d --autoref --unused --log log.txt</code>
 
