@@ -1,7 +1,7 @@
 DAT
 ===
 
-<b>D</b> <b>a</b>nalysis <b>t</b>ool
+<b>D</b> <b>A</b>nalysis <b>T</b>ool
 <p>This project uses the Lexer and Parser of https://github.com/Hackerpilot/Dscanner</p>
 
 Check your (named) imports on unused or under used.<br />
