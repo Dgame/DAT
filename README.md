@@ -86,8 +86,7 @@ Warning:
 Named import empty of module std.array imported on line 8 is used only 1 times.
 
 Warning:
-Named import startsWith of module std.algorithm imported on line 9 is never used
-.
+Named import startsWith of module std.algorithm imported on line 9 is never used.
 
 Warning:
 Named import endsWith of module std.algorithm imported on line 9 is never used.
@@ -95,8 +94,32 @@ Named import endsWith of module std.algorithm imported on line 9 is never used.
 => Therefore it is useless to import std.algorithm.
 
 Warning:
-Named import memcpy of module std.c.string imported on line 10 is used only 1 ti
-mes.
+Named import memcpy of module std.c.string imported on line 10 is used only 1 times.
+</pre>
+
+And with <code>dat test.d -miu=2 -q</code>
+
+<pre>
+ > File test.d
+Warning:
+Named import split of module std.array imported on line 8 is never used.
+
+Warning:
+Named import join of module std.array imported on line 8 is never used.
+
+Warning:
+Named import empty of module std.array imported on line 8 is used only 1 times.
+
+Warning:
+Named import startsWith of module std.algorithm imported on line 9 is never used.
+
+Warning:
+Named import endsWith of module std.algorithm imported on line 9 is never used.
+
+=> Therefore it is useless to import std.algorithm.
+
+Warning:
+Named import memcpy of module std.c.string imported on line 10 is used only 1 times.
 </pre>
 
 And for std/stdio.d checked with:
@@ -105,7 +128,6 @@ And for std/stdio.d checked with:
 <pre>
  > File D:/D/dmd2/src/phobos/std/stdio.d
 Warning:
-Named import FHND_WCHAR of module std.c.stdio imported on line 35 is used only 1
- times.
+Named import FHND_WCHAR of module std.c.stdio imported on line 35 is used only 1 times.
 
 </pre>
