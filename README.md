@@ -132,3 +132,71 @@ Warning:
 Named import FHND_WCHAR of module std.c.stdio imported on line 35 is used only 1 times.
 
 </pre>
+
+And finally a test for the whole druntime:
+<pre>
+ > File druntime\import\core\atomic.d
+ > File druntime\import\core\bitop.d
+ > File druntime\import\core\cpuid.d
+ > File druntime\import\core\demangle.d
+Warning:
+Named import printf of module core.stdc.stdio imported on line 19 is never used.
+
+Warning:
+Named import memmove of module core.stdc.string imported on line 21 is never used.
+
+=> Therefore it is useless to import core.stdc.string.
+
+...
+
+ > File druntime\import\core\sys\windows\stacktrace.d
+Warning:
+Named import snprintf of module core.stdc.stdio imported on line 285 is never used.
+
+ > File druntime\import\core\sys\windows\threadaux.d
+ > File druntime\import\core\sys\windows\windows.d
+ > File druntime\import\core\time.d
+ > File druntime\import\core\vararg.d
+ > File druntime\import\etc\linux\memoryerror.d
+ > File druntime\src\core\atomic.d
+ > File druntime\src\core\bitop.d
+ > File druntime\src\core\cpuid.d
+ > File druntime\src\core\demangle.d
+Warning:
+Named import printf of module core.stdc.stdio imported on line 19 is never used.
+
+Warning:
+Named import memmove of module core.stdc.string imported on line 21 is never used.
+
+=> Therefore it is useless to import core.stdc.string.
+
+...
+
+ > File druntime\src\core\sys\windows\stacktrace.d
+Warning:
+Named import snprintf of module core.stdc.stdio imported on line 285 is never used.
+
+ > File druntime\src\core\sys\windows\threadaux.d
+ > File druntime\src\core\sys\windows\windows.d
+ > File druntime\src\core\thread.d
+ > File druntime\src\core\time.d
+ > File druntime\src\core\vararg.d
+ > File druntime\src\etc\linux\memoryerror.d
+ > File druntime\src\gc\gc.d
+ > File druntime\src\gc\gcalloc.d
+ > File druntime\src\gc\gcbits.d
+ > File druntime\src\gc\gcstats.d
+ > File druntime\src\gc\gcx.d
+Warning:
+Named import printf of module core.stdc.stdio imported on line 49 is never used.
+
+...
+
+ > File druntime\src\rt\sections_linux.d
+Warning:
+Named import malloc of module core.stdc.stdlib imported on line 17 is never used.
+
+...
+-------
+8 occurrences in 291 files.
+</pre>
