@@ -134,6 +134,7 @@ Named import FHND_WCHAR of module std.c.stdio imported on line 35 is used only 1
 </pre>
 
 And finally a test for the whole druntime:
+<code>dat druntime -q</code>
 <pre>
  > File druntime\import\core\atomic.d
  > File druntime\import\core\bitop.d
