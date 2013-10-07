@@ -3,43 +3,109 @@ DAT
 
 <b>D</b> <b>a</b>nalysis <b>t</b>ool
 
-<b>DAT</b> can
-<ul>
-<li>resolve rvalue references</li>
-<li>detect unused or underused variables</li>
-<li>detect unused functions</li>
-<li>enumerate all detected variables along with their frequency of use.</li>
-</ul>
+Check your (named) imports on unused or under used.<br />
 
-Usage
-===
-Example:
-<code>DCompiler --file mytest.d --autoref --unused</code>
-<br />
-Or with logging:
-<code>DCompiler --file mytest.d --autoref --unused --log log.txt</code>
+<hr />
+Usage:
+<pre>
+--minImportUsage - The minimum of usage for the imports. If this is exceeded, there is a warning.
+-miu - the same
+--quit - No warning for public or package imports
+-q - the same
+</pre>
+<hr />
+test.d:
+<pre>
+module test;
 
-Options
-===
-<ul>
-<li><code>--file</code>         Your filename</li>
-<li><code>--autoref</code>      Resolve rvalue references by creating temporary variables. Creates a new file 'DAT_filename.d'.</li>
-<li><code>--unused</code>       Detects completly unused variables.</li>
-<li><code>--underused</code>    Detects Variables which are used one time or less.</li>
-<li><code>--compile</code>      Compiles the new files, if any. (Not implemented)</li>
-<li><code>--list</code>         Lists all detected variables, their declaration line and their frequency of use.</li>
-<li><code>--log</code>          Redirect output to the log file.
-</ul>
+import std.stdio;
+public {
+	import std.file : read;
+	import std.string : format, strip;
+}
+import std.array : split, join, empty;
+import std.algorithm : startsWith, endsWith;
+import std.c.string : memcpy;
 
-TODO:
-===
-<ul>
-<li>Improve detection of unused variables.</li>
-<li><del>Implement detection of unused functions.</del></li>
-<li>Implement detection of unused structs.</li>
-<li><del>Implement listing of all variables and their use counter.</del></li>
-<li>Implement listing of all functions and their use counter.</li>
-<li>Implement drop option for unused variables/functions.</li>
-</ul>
+bool isEmpty(string test) {
+	return test.strip().empty();
+}
 
-<b>Note that this is only a beta.</b>
+private void _foo() { }
+
+string fmt() {
+	string str = "one\nnew line";
+
+	{
+		string str_;
+		str = "abc";
+	}
+
+	void* p;
+	std.c.string.memcpy(p, &str, str.sizeof);
+
+	return format("%d.%d.%d", 0, 9, 9);
+}
+
+@property
+const(string) bar() pure {
+	return "";
+}
+
+void main() {
+
+}
+</pre>
+
+Checked with:
+<code>dat test.d -miu=2</code>
+
+<pre>
+ > File test.d
+Warning:
+Named import read of module std.file imported on line 5 is never used.
+But maybe the import is used outside, because it is marked with public.
+
+Warning:
+Named import format of module std.string imported on line 6 is used only 1 times
+.
+But maybe the import is used outside, because it is marked with public.
+
+Warning:
+Named import strip of module std.string imported on line 6 is used only 1 times.
+
+But maybe the import is used outside, because it is marked with public.
+
+Warning:
+Named import split of module std.array imported on line 8 is never used.
+
+Warning:
+Named import join of module std.array imported on line 8 is never used.
+
+Warning:
+Named import empty of module std.array imported on line 8 is used only 1 times.
+
+Warning:
+Named import startsWith of module std.algorithm imported on line 9 is never used
+.
+
+Warning:
+Named import endsWith of module std.algorithm imported on line 9 is never used.
+
+=> Therefore it is useless to import std.algorithm.
+
+Warning:
+Named import memcpy of module std.c.string imported on line 10 is used only 1 ti
+mes.
+</pre>
+
+And for std/stdio.d checked with:
+<code>dat D:/D/dmd2/src/phobos/std/stdio.d -miu=2</code>
+
+<pre>
+ > File D:/D/dmd2/src/phobos/std/stdio.d
+Warning:
+Named import FHND_WCHAR of module std.c.stdio imported on line 35 is used only 1
+ times.
+
+</pre>
