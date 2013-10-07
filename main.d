@@ -27,12 +27,6 @@ public:
 	string[] parts;
 }
 
-enum ProtAttr {
-	Block,
-	Line,
-	Label
-}
-
 class Protection {
 public:
 	enum Level {
@@ -108,7 +102,7 @@ void main(string[] args) {
 		enum File1 = "unittest_stdio.txt", File2 = "unittest_test.txt";
 
 		scanForUnderUsedImports("D:/D/dmd2/src/phobos/std/stdio.d", 2, false);//, File(File1, "w+"));
-		scanForUnderUsedImports("test.d", 2, false);//, File(File2, "w+"));
+		scanForUnderUsedImports("test.d", 2, true);//, File(File2, "w+"));
 	} else {
 		int minImportUsage = 1;
 		bool quit = false;
