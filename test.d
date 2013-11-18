@@ -13,7 +13,12 @@ bool isEmpty(string test) {
 	return test.strip().empty();
 }
 
-private void _foo() { }
+private void _foo() {
+	int[] arr;
+	int[4] arrs;
+	int[int] arrt;
+	int[ulong] arrt2;
+}
 
 string fmt() {
 	string str = "one\nnew line";
@@ -34,6 +39,13 @@ const(string) bar() pure {
 	return "";
 }
 
-void main() {
+struct C {
+	int id;
+}
 
+C[void*] c_map;
+
+void main() {
+	uint id = 0;
+	id++;
 }
