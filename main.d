@@ -31,9 +31,9 @@ class Protection {
 public:
 	enum Level {
 		Private,
-			Public,
-			Protected,
-			Package
+		Public,
+		Protected,
+		Package
 	}
 
 	enum Attr {
@@ -353,4 +353,8 @@ size_t scanForUnderUsedImports(string filename, int minUsage,
 	}
 
 	return totalOccur;
+}
+
+void scanForUnderUsedVariables() {
+	
 }
