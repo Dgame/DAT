@@ -142,7 +142,7 @@ public:
 
 void main(string[] args) {
 	debug {
-		enum File1 = "unittest_stdio.txt", File2 = "unittest_test.txt";
+		enum File1 = "unittest_stdio_import.txt", File2 = "unittest_test_import.txt";
 		
 		//		scanForUnderUsedImports("D:/D/dmd2/src/phobos/std/stdio.d", 2, false);//, File(File1, "w+"));
 		scanForUnderUsedImports("test.d", 2, true);//, File(File2, "w+"));
@@ -211,7 +211,7 @@ void main(string[] args) {
 		}
 	}
 } unittest {
-	enum File1 = "unittest_stdio.txt", File2 = "unittest_test.txt";
+	enum File1 = "unittest_stdio_import.txt", File2 = "unittest_test_import.txt", File3 = "unittest_test_und_vars.txt";
 	
 	uint occur1 = scanForUnderUsedImports("D:/D/dmd2/src/phobos/std/stdio.d", 2, false, File(File1, "w+"));
 	assert(occur1 == 2, to!string(occur1));
@@ -247,10 +247,10 @@ void main(string[] args) {
 	assert(output[29 .. 31].join(";") == "Warning:;test.d(10): Named import 'memcpy' of module 'std.c.string' is used only 1 times.",
 	"Output is: " ~ output[29 .. 31].join(";"));
 	
-	uint occur3 = scanForUnderUsedVariables("test.d", 1, false, File(File2, "w+"));
+	uint occur3 = scanForUnderUsedVariables("test.d", 1, false, File(File3, "w+"));
 	assert(occur3 == 10, to!string(occur3));
 	
-	output = readText(File2).splitLines();
+	output = readText(File3).splitLines();
 	
 	assert(output[0 .. 2].join(";") == "Warning:;test.d(17): Variable 'arr' of type int[] is never used.",
 	"Output is: " ~ output[0 .. 2].join(";"));

@@ -2,7 +2,7 @@ module test;
 
 import std.stdio;
 public {
-	import std.file : read;
+	import std.file : read, mkdir;
 	import std.string : format, strip;
 }
 import std.array : split, join, empty;
@@ -40,6 +40,7 @@ const(string) bar() pure {
 }
 
 struct C {
+private:
 	int id;
 }
 
@@ -53,4 +54,31 @@ void main() {
 	_buffer = new byte[4];
 
 	byte[byte*] bbmap;
+
+	const uint msize = 42;
+	void[] memory = new void[msize];
+	assert(memory !is null);
+}
+
+debug {
+	string outdir = "Debug";
+} else {
+	string outdir = "Release";
+}
+
+void unused() {
+	if (!outdir)
+		mkdir(outdir);
+	else
+		mkdir(outdir ~ "_New");
+}
+
+struct Foo {
+	int foo1;
+
+	enum : ubyte {
+		Unused,
+	} /// <--
+
+	int foo2;
 }
