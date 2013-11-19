@@ -99,10 +99,11 @@ struct Foo {
 
 	enum : ubyte {
 		Unused,
-	} /// <--
+	}
 
 	int foo2;
 }
+
 </pre>
 
 Checked with:
