@@ -114,13 +114,13 @@ void main(string[] args) {
 		       "minImportUsage|miu", &minImportUsage,
 		       "minVarUsage|mvu", &minVarUsage,
 		       "quit|q", &quit);
-
+		
 		uint totalOccur = 0;
 		uint fileCount = 0;
-
+		
 		if (minImportUsage > 0) {
 			writeln(" :: Check minimum import usage:\n----");
-
+			
 			foreach (string part; args[1 .. $]) {
 				uint occur = 0;
 				
@@ -133,20 +133,20 @@ void main(string[] args) {
 					}
 				} else if (isFile(part)) {
 					occur = scanForUnderUsedImports(part, minImportUsage, quit);
-
+					
 					totalOccur += occur;
 					fileCount++;
 				}
 			}
 			
 			writefln("-------\n%s occurrences in %d files.", totalOccur, fileCount);
-
+			
 			totalOccur = fileCount = 0; /// Reset
 		}
-
+		
 		if (minVarUsage > 0) {
 			writeln(" :: Check minimum variable usage:\n----");
-
+			
 			foreach (string part; args[1 .. $]) {
 				uint occur = 0;
 				
@@ -164,7 +164,7 @@ void main(string[] args) {
 					fileCount++;
 				}
 			}
-
+			
 			writefln("-------\n%s occurrences in %d files.", totalOccur, fileCount);
 		}
 	}
@@ -204,12 +204,12 @@ void main(string[] args) {
 	"Output is: " ~ output[24 .. 28].join(";"));
 	assert(output[29 .. 31].join(";") == "Warning:;Named import memcpy of module std.c.string imported on line 10 is used only 1 times.",
 	"Output is: " ~ output[29 .. 31].join(";"));
-
+	
 	uint occur3 = scanForUnderUsedVariables("test.d", 1, false, File(File2, "w+"));
 	assert(occur3 == 8, to!string(occur3));
 	
 	output = readText(File2).splitLines();
-
+	
 	assert(output[0 .. 2].join(";") == "Warning:;Variable arr of type int[] on line 17 is never used.");
 	assert(output[3 .. 5].join(";") == "Warning:;Variable arrs of type int[4] on line 18 is never used.");
 	assert(output[6 .. 8].join(";") == "Warning:;Variable arrt of type int[int] on line 19 is never used.");
@@ -344,8 +344,6 @@ size_t scanForUnderUsedImports(string filename, int minUsage,
 	
 	//writeln(imports);
 	
-	writeln(" > File ", filename);
-	
 	const(Import)* lastImport;
 	uint[string] totalImportUsage;
 	uint totalOccur = 0;
@@ -377,11 +375,11 @@ size_t scanForUnderUsedImports(string filename, int minUsage,
 			
 			if (info.length == 0 || !quit) {
 				if (imp.usage != 0) {
-					warning(output, "Named import %s of module %s imported on line %d is used only %d times.%s",
-					        imp.Id, imp.Module, imp.Line, imp.usage, info);
+					warning(output, "%s(%d): Named import '%s' of module '%s' is used only %d times.%s",
+					        filename, imp.Line, imp.Id, imp.Module, imp.usage, info);
 				} else {
-					warning(output, "Named import %s of module %s imported on line %d is never used.%s",
-					        imp.Id, imp.Module, imp.Line, info);
+					warning(output, "%s(%d): Named import '%s' of module '%s' is never used.%s",
+					        filename, imp.Line, imp.Id, imp.Module, info);
 				}
 				
 				totalOccur++;
@@ -430,7 +428,7 @@ struct Var {
 		Static,
 		Associative
 	}
-
+	
 	Protection prot;
 	
 	bool unsigned;
@@ -438,7 +436,7 @@ struct Var {
 	
 	Type type;
 	Array array;
-
+	
 	AA aa;
 	int dim = -1;
 	
@@ -452,7 +450,7 @@ struct Var {
 		this.name = name;
 		this.line = line;
 	}
-
+	
 	@property
 	size_t usage() const pure nothrow {
 		return this.usageLines.length;
@@ -561,10 +559,10 @@ private string _builtType(ref const Var v) {
 	string type = toLower(to!string(v.type));
 	if (v.unsigned)
 		type = 'u' ~ type;
-
+	
 	if (v.pointer)
 		type ~= '*';
-
+	
 	if (v.array != Var.Array.None) {
 		final switch (v.array) {
 			case Var.Array.Dynamic:
@@ -579,14 +577,14 @@ private string _builtType(ref const Var v) {
 					mapType = 'u' ~ mapType;
 				if (v.aa.pointer)
 					mapType ~= '*';
-
+				
 				type ~= '[' ~ mapType ~ ']';
 				break;
 			case Var.Array.None:
 				assert(0);
 		}
 	}
-
+	
 	return type;
 }
 
@@ -604,7 +602,7 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 	auto tokens = byToken(source, config);
 	
 	f.close();
-
+	
 	Stack protection;
 	protection.push(new Protection(Protection.Level.Public, 0, Protection.Attr.Label));
 	
@@ -639,10 +637,10 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 				protection.push(new Protection(convertProtLevel(tok.type), tok.line, pattr));
 			}
 		}
-
+		
 		Var.Type vt;
 		bool unsigned = false;
-
+		
 		if ((vt = _isBuiltInType(tok.type, tok.value, &unsigned)) != Var.Type.None) {
 			Token[] toks;
 			
@@ -655,20 +653,20 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 			&& toks[$ - 1].type != TokenType.rParen /// for cast(int)<--
 			//			&& toks[$ - 1].type != TokenType.lBracket
 			&& toks[$ - 1].type != TokenType.lBrace);
-
+			
 			if (toks.length > 1
 			    && toks[$ - 2].type == TokenType.identifier /// for byte[] _buf = new byte[4];
-				&& toks[$ - 1] == TokenType.semicolon
-				|| _isAssign(toks[$ - 1].type)
-				|| toks[$ - 1].type == TokenType.lBracket)
+			&& toks[$ - 1] == TokenType.semicolon
+			|| _isAssign(toks[$ - 1].type)
+			|| toks[$ - 1].type == TokenType.lBracket)
 			{
 				scope(failure) writeln('\n', toks);
-
+				
 				string name = toks[$ - 2].value;
 				uint line = toks[$ - 2].line;
-
+				
 				assert(name.length != 0);
-
+				
 				Var v = Var(protection.current, vt, name, line);
 				v.unsigned = unsigned;
 				
@@ -679,7 +677,7 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 						if (type[0].type == TokenType.star)
 							v.pointer = true;
 						else if (type[0].type == TokenType.lBracket) {
-//							writeln("Array: ", type);
+							//							writeln("Array: ", type);
 							
 							int dim = -1;
 							bool ptr = false;
@@ -699,7 +697,7 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 								
 								i++;
 							}
-
+							
 							if (dim != -1) {
 								v.array = Var.Array.Static;
 								v.dim = dim;
@@ -717,21 +715,20 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 						}
 					}
 				}
-
-//				writeln("Variable: ", v);
+				
+				//				writeln("Variable: ", v);
 				
 				vars ~= v;
 			}
 		} else if (tok.type == TokenType.identifier) {
-			if (Var* vptr = vars._isKnown(tok))
+			if (Var* vptr = vars._isKnown(tok)) {
 				vptr.usageLines ~= tok.line;
+			}
 		}
 	}
-
-	writeln(" > File ", filename);
-
+	
 	uint totalOccur = 0;
-
+	
 	foreach (ref const Var v; vars) {
 		if (v.usage < minUsage) {
 			string info;
@@ -742,20 +739,20 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 			
 			if (info.length != 0)
 				info = format("\nBut maybe it is used outside, because it is marked as %s.", info);
-
+			
 			if (info.length == 0 || !quit) {
 				totalOccur++;
-
+				
 				if (v.usage == 0) {
-					warning(output, "Variable %s of type %s on line %d is never used.%s",
-					        v.name, _builtType(v), v.line, info);
+					warning(output, "%s(%d): Variable '%s' of type %s is never used.%s",
+					        filename, v.line, v.name, _builtType(v), info);
 				} else {
-					warning(output, "Variable %s of type %s on line %d is used only %d times on the lines: %s",
-					        v.name, _builtType(v), v.line, v.usage, v.usageLines);
+					warning(output, "%s(%d): Variable '%s' of type %s is used only %d times on the lines: %s",
+					        filename, v.line, v.name, _builtType(v), v.usage, v.usageLines);
 				}
 			}
 		}
 	}
-
+	
 	return totalOccur;
 }
