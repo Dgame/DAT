@@ -691,7 +691,7 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 									dim = to!int(toks[i].value);
 								else if ((at = _isBuiltInType(tt, null, &unsigned)) != Var.Type.None) {
 									const size_t j = i + 1;
-									if (toks[j].type == TokenType.star) {
+									if (j < toks.length && toks[j].type == TokenType.star) {
 										ptr = true;
 										i = j;
 									}
