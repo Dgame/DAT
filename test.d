@@ -48,4 +48,9 @@ C[void*] c_map;
 void main() {
 	uint id = 0;
 	id++;
+
+	byte[] _buffer;
+	_buffer = new byte[4];
+
+	byte[byte*] bbmap;
 }

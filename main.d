@@ -206,7 +206,7 @@ void main(string[] args) {
 	"Output is: " ~ output[29 .. 31].join(";"));
 
 	uint occur3 = scanForUnderUsedVariables("test.d", 1, false, File(File2, "w+"));
-	assert(occur3 == 7, to!string(occur3));
+	assert(occur3 == 8, to!string(occur3));
 	
 	output = readText(File2).splitLines();
 
@@ -217,6 +217,7 @@ void main(string[] args) {
 	assert(output[12 .. 14].join(";") == "Warning:;Variable str_ of type string on line 27 is never used.");
 	assert(output[15 .. 17].join(";") == "Warning:;Variable id of type int on line 43 is never used.");
 	assert(output[18 .. 20].join(";") == "Warning:;Variable c_map of type void* on line 46 is never used.");
+	assert(output[21 .. 23].join(";") == "Warning:;Variable bbmap of type byte[byte*] on line 55 is never used.");
 }
 
 void warning(Args...)(ref File output, string msg, Args args) {
@@ -461,6 +462,7 @@ struct Var {
 struct AA {
 	Var.Type type;
 	bool unsigned;
+	bool pointer;
 }
 
 private Var.Type _isBuiltInType(TokenType tt, string value, bool* unsigned) {
@@ -575,6 +577,8 @@ private string _builtType(ref const Var v) {
 				string mapType = toLower(to!string(v.aa.type));
 				if (v.aa.unsigned)
 					mapType = 'u' ~ mapType;
+				if (v.aa.pointer)
+					mapType ~= '*';
 
 				type ~= '[' ~ mapType ~ ']';
 				break;
@@ -678,6 +682,7 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 //							writeln("Array: ", type);
 							
 							int dim = -1;
+							bool ptr = false;
 							Var.Type at;
 							
 							size_t i = 0;
@@ -685,7 +690,11 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 								if (tt == TokenType.intLiteral)
 									dim = to!int(toks[i].value);
 								else if ((at = _isBuiltInType(tt, null, &unsigned)) != Var.Type.None) {
-									/// pass
+									const size_t j = i + 1;
+									if (toks[j].type == TokenType.star) {
+										ptr = true;
+										i = j;
+									}
 								}
 								
 								i++;
@@ -700,6 +709,7 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 								v.array = Var.Array.Associative;
 								v.aa.type = at;
 								v.aa.unsigned = unsigned;
+								v.aa.pointer = ptr;
 							}
 							
 							if (v.array == Var.Array.None)
