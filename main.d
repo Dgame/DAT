@@ -133,12 +133,10 @@ void main(string[] args) {
 					}
 				} else if (isFile(part)) {
 					occur = scanForUnderUsedImports(part, minImportUsage, quit);
-					
+
+					totalOccur += occur;
 					fileCount++;
 				}
-				
-				if (occur != 0)
-					totalOccur += occur;
 			}
 			
 			writefln("-------\n%s occurrences in %d files.", totalOccur, fileCount);
@@ -162,11 +160,9 @@ void main(string[] args) {
 				} else if (isFile(part)) {
 					occur = scanForUnderUsedVariables(part, minVarUsage, quit);
 					
+					totalOccur += occur;
 					fileCount++;
 				}
-				
-				if (occur != 0)
-					totalOccur += occur;
 			}
 
 			writefln("-------\n%s occurrences in %d files.", totalOccur, fileCount);
@@ -176,23 +172,25 @@ void main(string[] args) {
 	enum File1 = "unittest_stdio.txt", File2 = "unittest_test.txt";
 	
 	uint occur1 = scanForUnderUsedImports("D:/D/dmd2/src/phobos/std/stdio.d", 2, false, File(File1, "w+"));
-	assert(occur1 == 1, to!string(occur1));
+	assert(occur1 == 2, to!string(occur1));
 	
 	string[] output = readText(File1).splitLines();
 	
 	assert(output[0 .. 2].join(";") == "Warning:;Named import FHND_WCHAR of module std.c.stdio imported on line 35 is used only 1 times.",
 	"Output is: " ~ output[0 .. 2].join(";"));
+	assert(output[3 .. 6].join(";") == "Warning:;Named import memcpy of module core.stdc.string imported on line 3145 is used only 1 times.;But maybe the import is used outside, because it is marked as public.",
+	"Output is: " ~ output[3 .. 6].join(";"));
 	
 	uint occur2 = scanForUnderUsedImports("test.d", 2, false, File(File2, "w+"));
 	assert(occur2 == 9, to!string(occur2));
 	
 	output = readText(File2).splitLines();
 	
-	assert(output[0 .. 3].join(";") == "Warning:;Named import read of module std.file imported on line 5 is never used.;But maybe the import is used outside, because it is marked with public.",
+	assert(output[0 .. 3].join(";") == "Warning:;Named import read of module std.file imported on line 5 is never used.;But maybe the import is used outside, because it is marked as public.",
 	"Output is: " ~ output[0 .. 3].join(";"));
-	assert(output[4 .. 7].join(";") == "Warning:;Named import format of module std.string imported on line 6 is used only 1 times.;But maybe the import is used outside, because it is marked with public.",
+	assert(output[4 .. 7].join(";") == "Warning:;Named import format of module std.string imported on line 6 is used only 1 times.;But maybe the import is used outside, because it is marked as public.",
 	"Output is: " ~ output[4 .. 7].join(";"));
-	assert(output[8 .. 11].join(";") == "Warning:;Named import strip of module std.string imported on line 6 is used only 1 times.;But maybe the import is used outside, because it is marked with public.",
+	assert(output[8 .. 11].join(";") == "Warning:;Named import strip of module std.string imported on line 6 is used only 1 times.;But maybe the import is used outside, because it is marked as public.",
 	"Output is: " ~ output[8 .. 11].join(";"));
 	assert(output[12 .. 14].join(";") == "Warning:;Named import split of module std.array imported on line 8 is never used.",
 	"Output is: " ~ output[12 .. 14].join(";"));
@@ -208,15 +206,17 @@ void main(string[] args) {
 	"Output is: " ~ output[29 .. 31].join(";"));
 
 	uint occur3 = scanForUnderUsedVariables("test.d", 1, false, File(File2, "w+"));
-	assert(occur3 == 5, to!string(occur3));
+	assert(occur3 == 7, to!string(occur3));
 	
 	output = readText(File2).splitLines();
 
-	assert(outout[0 .. 2].join(';') == "Warning:;Variable arr of type int[] on line 17 is never used.");
-	assert(outout[3 .. 5].join(';') == "Warning:;Variable arrs of type int[4] on line 18 is never used.");
-	assert(outout[6 .. 8].join(';') == "Warning:;Variable arrt of type int[int] on line 19 is never used.");
-	assert(outout[9 .. 11].join(';') == "Warning:;Variable arrt2 of type int[ulong] on line 20 is never used.");
-	assert(outout[12 .. 14].join(';') == "Warning:;Variable str_ of type string on line 27 is never used.");
+	assert(output[0 .. 2].join(";") == "Warning:;Variable arr of type int[] on line 17 is never used.");
+	assert(output[3 .. 5].join(";") == "Warning:;Variable arrs of type int[4] on line 18 is never used.");
+	assert(output[6 .. 8].join(";") == "Warning:;Variable arrt of type int[int] on line 19 is never used.");
+	assert(output[9 .. 11].join(";") == "Warning:;Variable arrt2 of type int[ulong] on line 20 is never used.");
+	assert(output[12 .. 14].join(";") == "Warning:;Variable str_ of type string on line 27 is never used.");
+	assert(output[15 .. 17].join(";") == "Warning:;Variable id of type int on line 43 is never used.");
+	assert(output[18 .. 20].join(";") == "Warning:;Variable c_map of type void* on line 46 is never used.");
 }
 
 void warning(Args...)(ref File output, string msg, Args args) {
@@ -372,7 +372,7 @@ size_t scanForUnderUsedImports(string filename, int minUsage,
 				info = "package";
 			
 			if (info.length != 0)
-				info = format("\nBut maybe the import is used outside, because it is marked with %s.", info);
+				info = format("\nBut maybe the import is used outside, because it is marked as %s.", info);
 			
 			if (info.length == 0 || !quit) {
 				if (imp.usage != 0) {
@@ -429,6 +429,8 @@ struct Var {
 		Static,
 		Associative
 	}
+
+	Protection prot;
 	
 	bool unsigned;
 	bool pointer;
@@ -443,7 +445,8 @@ struct Var {
 	uint line;
 	uint[] usageLines;
 	
-	this(Type type, string name, uint line) {
+	this(Protection prot, Type type, string name, uint line) {
+		this.prot = prot;
 		this.type = type;
 		this.name = name;
 		this.line = line;
@@ -463,23 +466,23 @@ struct AA {
 private Var.Type _isBuiltInType(TokenType tt, string value, bool* unsigned) {
 	switch (tt) {
 		case TokenType.ubyte_:
-			*unsigned = true;
+			*unsigned = true; goto case;
 		case TokenType.byte_:
 			return Var.Type.Byte;
 		case TokenType.ushort_:
-			*unsigned = true;
+			*unsigned = true; goto case;
 		case TokenType.short_:
 			return Var.Type.Short;
 		case TokenType.uint_:
-			*unsigned = true;
+			*unsigned = true; goto case;
 		case TokenType.int_:
 			return Var.Type.Int;
 		case TokenType.ulong_:
-			*unsigned = true;
+			*unsigned = true; goto case;
 		case TokenType.long_:
 			return Var.Type.Long;
 		case TokenType.ucent_:
-			*unsigned = true;
+			*unsigned = true; goto case;
 		case TokenType.cent_:
 			return Var.Type.Cent;
 		case TokenType.float_:
@@ -597,14 +600,45 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 	auto tokens = byToken(source, config);
 	
 	f.close();
+
+	Stack protection;
+	protection.push(new Protection(Protection.Level.Public, 0, Protection.Attr.Label));
 	
 	Var[] vars;
 	
 	Token tok;
 	for ( ; !tokens.empty(); tok = tokens.moveFront()) {
+		if (tok.type == TokenType.rBrace
+		    && protection.current.attr == Protection.Attr.Block)
+		{
+			protection.pop();
+		}
+		
+		if (isProtection(tok.type)) {
+			const Token next = tokens.front;
+			
+			Protection.Attr pattr = Protection.Attr.None;
+			if (next.type == TokenType.colon)
+				pattr = Protection.Attr.Label;
+			else if (next.type == TokenType.lBrace)
+				pattr = Protection.Attr.Block;
+			else {
+				bool _unused = false;
+				if (_isBuiltInType(next.type, next.value, &_unused))
+					pattr = Protection.Attr.Line;
+			}
+			
+			if (pattr != Protection.Attr.None) {
+				if (protection.current.attr == Protection.Attr.Label)
+					protection.pop();
+				
+				protection.push(new Protection(convertProtLevel(tok.type), tok.line, pattr));
+			}
+		}
+
 		Var.Type vt;
 		bool unsigned = false;
-		
+
 		if ((vt = _isBuiltInType(tok.type, tok.value, &unsigned)) != Var.Type.None) {
 			Token[] toks;
 			
@@ -618,18 +652,20 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 			//			&& toks[$ - 1].type != TokenType.lBracket
 			&& toks[$ - 1].type != TokenType.lBrace);
 
-			if (toks.length > 1 && toks[$ - 1] == TokenType.semicolon
+			if (toks.length > 1
+			    && toks[$ - 2].type == TokenType.identifier /// for byte[] _buf = new byte[4];
+				&& toks[$ - 1] == TokenType.semicolon
 				|| _isAssign(toks[$ - 1].type)
 				|| toks[$ - 1].type == TokenType.lBracket)
 			{
-				assert(toks[$ - 2].type == TokenType.identifier);
+				scope(failure) writeln('\n', toks);
 
 				string name = toks[$ - 2].value;
 				uint line = toks[$ - 2].line;
 
 				assert(name.length != 0);
 
-				Var v = Var(vt, name, line);
+				Var v = Var(protection.current, vt, name, line);
 				v.unsigned = unsigned;
 				
 				if (toks.length >= 2) {
@@ -688,13 +724,25 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 
 	foreach (ref const Var v; vars) {
 		if (v.usage < minUsage) {
-			totalOccur++;
+			string info;
+			if (v.prot.level == Protection.Level.Public)
+				info = "public";
+			else if (v.prot.level == Protection.Level.Package)
+				info = "package";
+			
+			if (info.length != 0)
+				info = format("\nBut maybe it is used outside, because it is marked as %s.", info);
 
-			if (v.usage == 0) {
-				warning(output, "Variable %s of type %s on line %d is never used.", v.name, _builtType(v), v.line);
-			} else {
-				warning(output, "Variable %s of type %s on line %d is used only %d times on the lines: %s",
-				        v.name, _builtType(v), v.line, v.usage, v.usageLines);
+			if (info.length == 0 || !quit) {
+				totalOccur++;
+
+				if (v.usage == 0) {
+					warning(output, "Variable %s of type %s on line %d is never used.%s",
+					        v.name, _builtType(v), v.line, info);
+				} else {
+					warning(output, "Variable %s of type %s on line %d is used only %d times on the lines: %s",
+					        v.name, _builtType(v), v.line, v.usage, v.usageLines);
+				}
 			}
 		}
 	}
