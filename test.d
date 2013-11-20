@@ -82,3 +82,17 @@ struct Foo {
 
 	int foo2;
 }
+
+struct Bar {
+	void useless() const {
+		int test2;
+	}
+}
+
+class FR;
+
+int FR_global;
+
+void FR_test() {
+	int abc;
+}

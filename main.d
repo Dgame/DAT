@@ -102,7 +102,7 @@ public:
 	T[] values;
 	int _curPos = -1;
 	
-	void push(int value) {
+	void push(T value) {
 		this._curPos++;
 
 //		writeln("Stack pos by push: ", this._curPos, this.values);
@@ -248,7 +248,7 @@ void main(string[] args) {
 	"Output is: " ~ output[29 .. 31].join(";"));
 	
 	uint occur3 = scanForUnderUsedVariables("test.d", 1, false, File(File3, "w+"));
-	assert(occur3 == 10, to!string(occur3));
+	assert(occur3 == 13, to!string(occur3));
 	
 	output = readText(File3).splitLines();
 	
@@ -272,6 +272,11 @@ void main(string[] args) {
 	"Output is: " ~ output[24 .. 27].join(";"));
 	assert(output[28 .. 31].join(";") == "Warning:;test.d(83): Variable 'foo2' of type int is never used.;But maybe it is used outside, because it is marked as public.",
 	"Output is: " ~ output[28 .. 31].join(";"));
+	assert(output[32 .. 34].join(";") == "Warning:;test.d(88): Variable 'test2' of type int is never used.",
+	"Output is: " ~ output[32 .. 34].join(";"));
+	assert(output[35 .. 37].join(";") == "Warning:;test.d(94): Variable 'FR_global' of type int is never used.",
+	"Output is:" ~ output[35 .. 37].join(";"));
+	assert(output[38 .. 40].join(";") == "Warning:;test.d(97): Variable 'abc' of type int is never used.");
 }
 
 void warning(Args...)(ref File output, string msg, Args args) {
@@ -654,6 +659,17 @@ private void _checkIdentifier(Var[] vars, ref const Token tok) {
 	}
 }
 
+struct CurrentType {
+	enum {
+		None,
+		Struct,
+		Class
+	}
+
+	int type;
+	int line = -1;
+}
+
 size_t scanForUnderUsedVariables(string filename, int minUsage,
                                  bool quit = false, File output = stdout)
 {
@@ -678,8 +694,8 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 	uint open_braces = 0;
 	int unittest_brace = -1;
 
-	Stack!int cur_type_brace;
-	cur_type_brace.push(-1);
+	Stack!CurrentType cur_type;
+	cur_type.push(CurrentType(CurrentType.None, -1));
 	
 	Token tok;
 	for ( ; !tokens.empty(); tok = tokens.moveFront()) {
@@ -689,13 +705,11 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 		    && protection.current.line < tok.line)
 		{
 			protection.pop();
-		} else if (protection.current.attr == Protection.Attr.Block
-		           || protection.current.attr == Protection.Attr.Label
+		} else if ((protection.current.attr == Protection.Attr.Block
+		           || protection.current.attr == Protection.Attr.Label)
 		           && tok.type == TokenType.rBrace)
 		{
-			if (cur_type_brace.current == (open_braces - 1)) {
-				protection.pop();
-			}
+			protection.pop();
 		}
 		
 		if (isProtection(tok.type)) {
@@ -725,9 +739,26 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 		
 		/// structs and classes have default public access 
 		if (tok.type == TokenType.struct_ || tok.type == TokenType.class_) {
+			// Forward referenced?
+			while (tok.type != TokenType.lBrace
+			       && tok.type != TokenType.semicolon)
+			{
+				tok = tokens.moveFront();
+			}
+
+			if (tok.type == TokenType.semicolon)
+				continue;
+
 			protection.push(new Protection(Protection.Level.Public, tok.line, Protection.Attr.Label));
 
-			cur_type_brace.push(open_braces);
+			int flag = 0;
+			if (tok.type == TokenType.struct_)
+				flag = CurrentType.Struct;
+			else
+				flag = CurrentType.Class;
+
+			cur_type.push(CurrentType(flag, open_braces));
+
 		} else if (tok.type == TokenType.unittest_) {
 			unittest_brace = open_braces;
 		}
@@ -735,12 +766,16 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 		if (tok.type == TokenType.lBrace) {
 			open_braces++;
 
-//			writefln("\t open brace on line %d", tok.line);
+			/// Innerhalb einer Methode?
+			if (cur_type.current.line != -1 && cur_type.current.line + 1 < open_braces)
+				protection.push(new Protection(Protection.Level.Private, tok.line, Protection.Attr.Block));
+
+			//			writefln("\t open brace on line %d", tok.line);
 		} else if (tok.type == TokenType.rBrace) {
 			open_braces--;
 
-			if (cur_type_brace.current == open_braces)
-				cur_type_brace.pop();
+			if (cur_type.current.line == open_braces)
+				cur_type.pop();
 
 			if (unittest_brace == open_braces)
 				unittest_brace = -1;
@@ -752,7 +787,9 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 		bool unsigned = false;
 
 		/// Is Var?
-		if ((vt = _isBuiltInType(tok.type, tok.value, &unsigned)) != Var.Type.None && tokens.front.type != TokenType.lBrace) {
+		if ((vt = _isBuiltInType(tok.type, tok.value, &unsigned)) != Var.Type.None 
+		    && tokens.front.type != TokenType.lBrace)
+		{
 			Token[] toks;
 			
 			do {
@@ -774,7 +811,7 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 					|| toks[$ - 1].type == TokenType.lBracket))
 			{
 				scope(failure) writeln('\n', toks);
-				
+
 				string name = toks[$ - 2].value;
 				uint line = toks[$ - 2].line;
 				
@@ -798,18 +835,18 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 				Var vk = null;
 				if ((vk = vars._isKnown(name)) !is null
 				    && vk.open_braces == 1 && open_braces == 1 // Globaler scope. TODO: vk.open_braces == open_braces?
-				    && cur_type_brace.current == -1 && !vk.nested)
+				    && cur_type.current.line == -1 && !vk.nested)
 				{
-//					writeln(" ====> ", name, line, "::", cur_type_brace.current);
+//					writeln(" ====> ", name, line, "::", cur_type.current.line);
 					continue;
 				}
 
 				Var v = new Var(protection.current, vt, name, line);
 				v.unsigned = unsigned;
-				v.nested = cur_type_brace.current != -1;
+				v.nested = cur_type.current.line != -1;
 				v.open_braces = open_braces;
 				v.inUnittest = unittest_brace != -1;
-				
+
 				if (toks.length >= 2) {
 					Token[] type = toks[0 .. $ - 2];
 					
