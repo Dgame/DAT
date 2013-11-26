@@ -104,37 +104,37 @@ public:
 	
 	void push(T value) {
 		this._curPos++;
-
-//		writeln("Stack pos by push: ", this._curPos, this.values);
-
+		
+		//		writeln("Stack pos by push: ", this._curPos, this.values);
+		
 		if (this._curPos >= this.values.length)
 			this.values ~= value;
 		else
 			this.values[this._curPos] = value;
 	}
-
+	
 	@property
 	T current(string file = __FILE__, size_t line = __LINE__) {
 		if (this._curPos < 0)
 			throw new Exception("Null stack access", file, line);
-
+		
 		return this.values[this._curPos];
 	}
 	
 	T pop() {
 		T cur = this.values[this._curPos--];
-//		writeln("Stack pos by pop: ", this._curPos, this.values);
+		//		writeln("Stack pos by pop: ", this._curPos, this.values);
 		return cur;
 	}
 } unittest {
 	Stack!int stack;
-
+	
 	stack.push(-1);
 	assert(stack.current == -1);
-
+	
 	stack.push(2);
 	assert(stack.current == 2);
-
+	
 	int top = stack.pop();
 	assert(top == 2);
 	assert(stack.current == -1);
@@ -210,7 +210,8 @@ void main(string[] args) {
 			writefln("-------\n%s occurrences in %d files.", totalOccur, fileCount);
 		}
 	}
-} unittest {
+}
+unittest {
 	enum File1 = "unittest_stdio_import.txt", File2 = "unittest_test_import.txt", File3 = "unittest_test_und_vars.txt";
 	
 	uint occur1 = scanForUnderUsedImports("D:/D/dmd2/src/phobos/std/stdio.d", 2, false, File(File1, "w+"));
@@ -224,7 +225,7 @@ void main(string[] args) {
 	"Output is: " ~ output[3 .. 6].join(";"));
 	
 	uint occur2 = scanForUnderUsedImports("test.d", 2, false, File(File2, "w+"));
-	assert(occur2 == 9, to!string(occur2));
+	assert(occur2 == 12, to!string(occur2));
 	
 	output = readText(File2).splitLines();
 	
@@ -246,6 +247,12 @@ void main(string[] args) {
 	"Output is: " ~ output[24 .. 28].join(";"));
 	assert(output[29 .. 31].join(";") == "Warning:;test.d(10): Named import 'memcpy' of module 'std.c.string' is used only 1 times.",
 	"Output is: " ~ output[29 .. 31].join(";"));
+	assert(output[32 .. 34].join(";") == "Warning:;test.d(101): Named import 'malloc' of module 'core.stdc.stdlib' is used only 1 times.",
+	"Output is: " ~ output[32 .. 34].join(";"));
+	assert(output[35 .. 37].join(";") == "Warning:;test.d(101): Named import 'realloc' of module 'core.stdc.stdlib' is used only 1 times.",
+	"Output is: " ~ output[35 .. 37].join(";"));
+	assert(output[38 .. 40].join(";") == "Warning:;test.d(117): Named import 'free' of module 'core.stdc.stdlib' is used only 1 times.",
+	"Output is: " ~ output[38 .. 40].join(";"));
 	
 	uint occur3 = scanForUnderUsedVariables("test.d", 1, false, File(File3, "w+"));
 	assert(occur3 == 13, to!string(occur3));
@@ -394,7 +401,7 @@ size_t scanForUnderUsedImports(string filename, int minUsage,
 			curImp ~= tok.value;
 		
 		if (tok.type == TokenType.identifier) {
-			foreach (ref Import imp; imports) {
+			foreach_reverse (ref Import imp; imports) {
 				if (imp.Id == tok.value.strip()) {
 					imp.usage++;
 					
@@ -431,7 +438,7 @@ size_t scanForUnderUsedImports(string filename, int minUsage,
 				info = "public";
 			else if (imp.prot.level == Protection.Level.Package)
 				info = "package";
-
+			
 			if (info.length != 0)
 				info = format("\nBut maybe the import is used outside, because it is marked as %s.", info);
 			
@@ -490,14 +497,14 @@ class Var {
 		Static,
 		Associative
 	}
-
+	
 	Protection prot;
 	
 	bool unsigned;
 	bool pointer;
 	bool nested;
 	bool inUnittest;
-
+	
 	Type type;
 	Array array;
 	
@@ -665,7 +672,7 @@ struct CurrentType {
 		Struct,
 		Class
 	}
-
+	
 	int type;
 	int line = -1;
 }
@@ -679,8 +686,8 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 	config.fileName   = filename;
 	
 	File f = File(filename, "r");
-
-//	writeln(" > File: ", filename);
+	
+	//	writeln(" > File: ", filename);
 	
 	auto source = cast(ubyte[]) f.byLine(KeepTerminator.yes).join();
 	auto tokens = byToken(source, config);
@@ -693,20 +700,20 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 	Var[] vars;
 	uint open_braces = 0;
 	int unittest_brace = -1;
-
+	
 	Stack!CurrentType cur_type;
 	cur_type.push(CurrentType(CurrentType.None, -1));
 	
 	Token tok;
 	for ( ; !tokens.empty(); tok = tokens.moveFront()) {
-//		writeln(" >> line = ", tok.line);
-
+		//		writeln(" >> line = ", tok.line);
+		
 		if (protection.current.attr == Protection.Attr.Line
 		    && protection.current.line < tok.line)
 		{
 			protection.pop();
 		} else if ((protection.current.attr == Protection.Attr.Block
-		           || protection.current.attr == Protection.Attr.Label)
+		            || protection.current.attr == Protection.Attr.Label)
 		           && tok.type == TokenType.rBrace)
 		{
 			protection.pop();
@@ -745,47 +752,47 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 			{
 				tok = tokens.moveFront();
 			}
-
+			
 			if (tok.type == TokenType.semicolon)
 				continue;
-
+			
 			protection.push(new Protection(Protection.Level.Public, tok.line, Protection.Attr.Label));
-
+			
 			int flag = 0;
 			if (tok.type == TokenType.struct_)
 				flag = CurrentType.Struct;
 			else
 				flag = CurrentType.Class;
-
+			
 			cur_type.push(CurrentType(flag, open_braces));
-
+			
 		} else if (tok.type == TokenType.unittest_) {
 			unittest_brace = open_braces;
 		}
-
+		
 		if (tok.type == TokenType.lBrace) {
 			open_braces++;
-
+			
 			/// Innerhalb einer Methode?
 			if (cur_type.current.line != -1 && cur_type.current.line + 1 < open_braces)
 				protection.push(new Protection(Protection.Level.Private, tok.line, Protection.Attr.Block));
-
+			
 			//			writefln("\t open brace on line %d", tok.line);
 		} else if (tok.type == TokenType.rBrace) {
 			open_braces--;
-
+			
 			if (cur_type.current.line == open_braces)
 				cur_type.pop();
-
+			
 			if (unittest_brace == open_braces)
 				unittest_brace = -1;
-
-//			writefln("\t close brace on line %d", tok.line);
+			
+			//			writefln("\t close brace on line %d", tok.line);
 		}
 		
 		Var.Type vt;
 		bool unsigned = false;
-
+		
 		/// Is Var?
 		if ((vt = _isBuiltInType(tok.type, tok.value, &unsigned)) != Var.Type.None 
 		    && tokens.front.type != TokenType.lBrace)
@@ -794,29 +801,29 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 			
 			do {
 				toks ~= tokens.moveFront();
-
+				
 				if (tokens.front.type == TokenType.lBrace)
 					break;
 			} while (toks[$ - 1] != TokenType.semicolon
-				&& !_isAssign(toks[$ - 1].type)
-				&& toks[$ - 1].type != TokenType.colon
-				&& toks[$ - 1].type != TokenType.lParen
-				&& toks[$ - 1].type != TokenType.rParen /// for cast(int)<--
-				/*&& toks[$ - 1].type != TokenType.lBracket*/);
-
+			&& !_isAssign(toks[$ - 1].type)
+			&& toks[$ - 1].type != TokenType.colon
+			&& toks[$ - 1].type != TokenType.lParen
+			&& toks[$ - 1].type != TokenType.rParen /// for cast(int)<--
+			/*&& toks[$ - 1].type != TokenType.lBracket*/);
+			
 			if (toks.length > 1
 			    && toks[$ - 2].type == TokenType.identifier /// for byte[] _buf = new byte[4];
-				&& (toks[$ - 1] == TokenType.semicolon 
-					|| _isAssign(toks[$ - 1].type)
-					|| toks[$ - 1].type == TokenType.lBracket))
+			&& (toks[$ - 1] == TokenType.semicolon 
+			|| _isAssign(toks[$ - 1].type)
+			|| toks[$ - 1].type == TokenType.lBracket))
 			{
 				scope(failure) writeln('\n', toks);
-
+				
 				string name = toks[$ - 2].value;
 				uint line = toks[$ - 2].line;
 				
 				assert(name.length != 0);
-
+				
 				/**
 				 * Befinden wir uns derzeit nicht in einem Type (struct|class)
 				 * und es existiert eine Variable mit diesem Namen bereits
@@ -837,16 +844,16 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 				    && vk.open_braces == 1 && open_braces == 1 // Globaler scope. TODO: vk.open_braces == open_braces?
 				    && cur_type.current.line == -1 && !vk.nested)
 				{
-//					writeln(" ====> ", name, line, "::", cur_type.current.line);
+					//					writeln(" ====> ", name, line, "::", cur_type.current.line);
 					continue;
 				}
-
+				
 				Var v = new Var(protection.current, vt, name, line);
 				v.unsigned = unsigned;
 				v.nested = cur_type.current.line != -1;
 				v.open_braces = open_braces;
 				v.inUnittest = unittest_brace != -1;
-
+				
 				if (toks.length >= 2) {
 					Token[] type = toks[0 .. $ - 2];
 					
@@ -907,8 +914,8 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 			vars._checkIdentifier(tok);
 		}
 	}
-
-//	writefln("Open Braces: %d", open_braces);
+	
+	//	writefln("Open Braces: %d", open_braces);
 	
 	uint totalOccur = 0;
 	
@@ -927,7 +934,7 @@ size_t scanForUnderUsedVariables(string filename, int minUsage,
 			
 			if (info.length == 0 || !quit) {
 				totalOccur++;
-
+				
 				if (v.usage == 0) {
 					warning(output, "%s(%d): Variable '%s' of type %s is never used.%s",
 					        filename, v.line, v.name, _builtType(v), info);
